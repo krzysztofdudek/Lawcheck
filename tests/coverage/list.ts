@@ -1,3 +1,6 @@
+import path from 'node:path';
+import type { PlatformPath } from 'node:path';
+
 export type Range = { startOffset: number; endOffset: number; count: number };
 export type Script = { url: string; functions: { ranges: Range[] }[] };
 export type Segment = { offset: number; source: number; line: number };
@@ -15,6 +18,10 @@ export function scriptLength(script: Script): number {
   let length = 0;
   for (const f of script.functions) for (const range of f.ranges) if (range.endOffset > length) length = range.endOffset;
   return length;
+}
+
+export function sourceOf(built: string, source: string, root: string, system: PlatformPath = path): string | null {
+  return `src/${system.resolve(system.join(built, '..'), source).slice(system.resolve(root, 'src').length + 1).replace(/\\/g, '/')}`;
 }
 
 const DIGITS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';

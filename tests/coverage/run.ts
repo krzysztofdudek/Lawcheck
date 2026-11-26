@@ -2,7 +2,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, globSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { paint, render, scriptLength, segments, unreachedLines } from './list.ts';
+import { paint, render, scriptLength, segments, sourceOf, unreachedLines } from './list.ts';
 import type { FileList, Script, Segment } from './list.ts';
 import { COMMIT_GROUPS, ROOT } from '../harness/sets.ts';
 
@@ -35,7 +35,7 @@ function readBuild(maps: string): Map<string, Built> {
     const text = readFileSync(path, 'utf8');
     if (text.trimEnd() !== twin.trimEnd()) fail(`dist/${file} is not the build of this src/; run npm run build first`);
     const parsed = JSON.parse(readFileSync(join(maps, map), 'utf8')) as { mappings: string; sources: string[] };
-    const sources = parsed.sources.map((source) => `src/${resolve(join(maps, file, '..'), source).slice(resolve(ROOT, 'src').length + 1).replace(/\\/g, '/')}`);
+    const sources = parsed.sources.map((source) => sourceOf(join(maps, file), source, ROOT) ?? fail(`the source map of dist/${file} names the source ${source}, which is no file of src/`));
     out.set(file, { file, text, ran: new Uint8Array(text.length), loaded: false, all: segments(parsed.mappings, text), sources });
   }
   return out;
