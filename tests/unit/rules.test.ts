@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeMessage, runAll, validate } from '../../dist/rules.js';
+import { normalizeMessage, validate } from '../../dist/rules.js';
 
 const FILE = { path: 'src/a.ts', type: { id: 'source' }, rules: [], text: 'a\nb\n', lines: ['a', 'b'] } as never;
 
@@ -27,13 +27,4 @@ test('check-slice §3: every broken answer is named', () => {
 
 test('check-slice §3: each line break in a message becomes one space', () => {
   assert.equal(normalizeMessage('a\nb\r\nc\rd'), 'a b c d');
-});
-
-test('check-slice §3: runAll keeps the order of its tasks under a limit', async () => {
-  const delays = [30, 5, 20, 1];
-  const results = await runAll(
-    delays.map((ms, index) => () => new Promise<number>((done) => setTimeout(() => done(index), ms))),
-    2,
-  );
-  assert.deepEqual(results, [0, 1, 2, 3]);
 });

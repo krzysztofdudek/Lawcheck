@@ -1,6 +1,5 @@
 import { fork, spawnSync } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
-import { availableParallelism } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, isAbsolute, join, relative, sep } from 'node:path';
 import { realpathSync } from 'node:fs';
@@ -690,19 +689,6 @@ function outsideCopy(text: string, tops: string[]): string {
     });
   }
   return out;
-}
-
-export async function runAll<T>(tasks: (() => Promise<T>)[], limit = availableParallelism()): Promise<T[]> {
-  const results: T[] = new Array(tasks.length);
-  let next = 0;
-  const worker = async () => {
-    while (next < tasks.length) {
-      const index = next++;
-      results[index] = await tasks[index]!();
-    }
-  };
-  await Promise.all(Array.from({ length: Math.min(limit, tasks.length) }, worker));
-  return results;
 }
 
 export interface ContextFile {
