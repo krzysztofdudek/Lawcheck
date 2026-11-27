@@ -2,7 +2,7 @@
 title: "Lawcheck: architecture and rule checks for coding agents"
 summary: "Write your architecture rules once, and stop reading your agent's code to enforce them. Lawcheck checks them in the hooks of coding agents and in CI."
 skip: Skip to content
-heroNote: "The animation shows real output of Lawcheck 0.1.0-alpha.6 on a sample repository. The agent's code in it is an example."
+heroNote: "The animation shows real output of Lawcheck 0.1.0 on a sample repository. The agent's code in it is an example."
 facts:
   - { label: When it checks, text: "While the agent writes code, again before it finishes, and in CI." }
   - { label: Where, text: "One law reads imports and other uses in twelve languages, from TypeScript and Python to Go and Java. Limits names the forms it misses." }

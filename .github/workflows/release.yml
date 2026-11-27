@@ -23,46 +23,10 @@ jobs:
       actions: read
     uses: ./.github/workflows/ci.yml
 
-  # The nightly set is not run again here: its tests draw new seeds and orders, so a run here would judge other cases than the runs that were seen green. The Nightly does not run by itself: it runs by hand on the tagged commit before a release, and the tagged commit must already have one green whole run of nightly.yml. The tag is laid only after it. A dispatch that chose jobs, tests or a system takes another run name (run-name of nightly.yml), so it is not counted.
-  nightly:
-    name: a green whole Nightly on the tagged commit
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      actions: read
-    steps:
-      - name: A green whole dispatched run of nightly.yml on the tagged commit
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-          TAG: ${{ github.ref_name }}
-          COMMIT: ${{ github.sha }}
-        run: |
-          set -euo pipefail
-          # verify and pack build github.sha, which a re-run keeps; a tag moved since the push names another commit, and this run must not publish the old one.
-          NAMED=$(gh api "repos/${REPO}/commits/refs/tags/${TAG}" --jq '.sha')
-          if [ "${NAMED}" != "${COMMIT}" ]; then
-            echo "::error::Tag ${TAG} now names commit ${NAMED}, and this run builds ${COMMIT}, the commit it was pushed at. Do not re-run this run; the push of the tag at ${NAMED} starts its own."
-            exit 1
-          fi
-          RUNS=$(gh api "repos/${REPO}/actions/workflows/nightly.yml/runs?head_sha=${COMMIT}&per_page=100" \
-            --jq '.workflow_runs[] | select(.event == "workflow_dispatch" and .display_title == "Nightly, whole") | "\(.id) \(.event) \(.status) \(.conclusion // "none") \(.html_url)"')
-          GREEN=$(awk '$3 == "completed" && $4 == "success" && !seen[$1]++ { print }' <<< "${RUNS}")
-          if [ -z "${GREEN}" ]; then
-            echo "::error::Tag ${TAG} names commit ${COMMIT}, which has no green whole Nightly: no whole dispatched run of nightly.yml on that commit ended in success, and a run of chosen jobs, tests or a system does not count. Dispatch it by hand with no inputs (gh workflow run nightly.yml --ref <a branch whose head is ${COMMIT}>), wait until it is green, then re-run this release run."
-            if [ -n "${RUNS}" ]; then
-              echo "The whole runs of nightly.yml on ${COMMIT} (id, event, status, conclusion, address):"
-              printf '%s\n' "${RUNS}"
-            fi
-            exit 1
-          fi
-          echo "Tag ${TAG} names commit ${COMMIT}; green whole Nightlies:"
-          printf '%s\n' "${GREEN}"
-
   # Everything that runs code of the repository or of its dependencies happens here, with a read-only token and no id-token, so no install script can mint the publishing token.
   pack:
     name: pack
-    needs: [verify, nightly]
+    needs: [verify]
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -189,11 +153,11 @@ jobs:
           fi
           npm publish "./release/lawcheck-${VERSION}.tgz" --ignore-scripts --provenance --access public --tag "${TAG}"
 
-  # latest names the newest alpha, and alpha stays a tag of its own. The publish sets latest to the alpha it publishes, and this job adds the dist-tag alpha to that version. npm runs dist-tag over OIDC from npm 11.21.0, and only when the trusted publisher of release.yml on npmjs.com has "Allow npm dist-tag" turned on. This job needs that setting to add alpha. A re-run of this job alone repeats only the move of alpha. The job also runs when the publish was skipped because npm already holds the version, so a re-run of all jobs after a good publish moves alpha too.
+  # latest names the newest release, and alpha names the same version, so lawcheck@alpha never installs a release older than latest. The publish sets latest to the alpha or stable version it publishes, and this job adds the dist-tag alpha to that version. npm runs dist-tag over OIDC from npm 11.21.0, and only when the trusted publisher of release.yml on npmjs.com has "Allow npm dist-tag" turned on. This job needs that setting to add alpha. A re-run of this job alone repeats only the move of alpha. The job also runs when the publish was skipped because npm already holds the version, so a re-run of all jobs after a good publish moves alpha too.
   alpha:
-    name: npm alpha on the new alpha
+    name: npm alpha on the new version
     needs: [pack, publish]
-    if: ${{ !cancelled() && needs.pack.result == 'success' && needs.pack.outputs.disttag == 'alpha' && (needs.publish.result == 'success' || needs.publish.result == 'skipped') }}
+    if: ${{ !cancelled() && needs.pack.result == 'success' && (needs.pack.outputs.disttag == 'alpha' || needs.pack.outputs.disttag == 'latest') && (needs.publish.result == 'success' || needs.publish.result == 'skipped') }}
     runs-on: ubuntu-latest
     permissions:
       contents: read

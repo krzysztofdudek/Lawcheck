@@ -1,6 +1,6 @@
 # Install
 
-Lawcheck is one program, `lawcheck`. You install its alpha from npm, once on your machine or as a development dependency of one project. Then `lawcheck doctor` checks the setup.
+Lawcheck is one program, `lawcheck`. You install it from npm, once on your machine or as a development dependency of one project. Then `lawcheck doctor` checks the setup.
 
 ## Requirements
 
@@ -36,7 +36,7 @@ In those setups, every command but `--version`, `--help`, `docs` and `doctor` st
 ## Install globally
 
 ```text
-$ npm install --global lawcheck@alpha
+$ npm install --global lawcheck
 ```
 
 The program `lawcheck` is then on your `PATH`. The `runner` setting in `.lawcheck/config.yaml` says how to start Lawcheck. Leave it out: its default, `global`, fits this install.
@@ -47,10 +47,10 @@ Add Lawcheck as a development dependency. You then start it through the package 
 
 | Package manager | Install | Start | `runner` |
 |---|---|---|---|
-| npm | `npm install --save-dev lawcheck@alpha` | `npx --no-install lawcheck` | `npx` |
-| pnpm | `pnpm add --save-dev lawcheck@alpha` | `pnpm exec lawcheck` | `pnpm` |
-| Yarn | `yarn add --dev lawcheck@alpha` | `yarn run lawcheck` | `yarn` |
-| Bun | `bun add --dev lawcheck@alpha` | `bun x --no-install lawcheck` | `bun` |
+| npm | `npm install --save-dev lawcheck` | `npx --no-install lawcheck` | `npx` |
+| pnpm | `pnpm add --save-dev lawcheck` | `pnpm exec lawcheck` | `pnpm` |
+| Yarn | `yarn add --dev lawcheck` | `yarn run lawcheck` | `yarn` |
+| Bun | `bun add --dev lawcheck` | `bun x --no-install lawcheck` | `bun` |
 
 With `--no-install`, npx runs the copy installed in the project. It downloads nothing. A plain `npx lawcheck` downloads a copy when the project has none.
 
@@ -74,7 +74,7 @@ Without the line, the `runner` setting is `global`. Write the line on its own, a
 
 ## Check the install
 
-`lawcheck --version` prints the version you installed. This page describes `0.1.0-alpha.6`. In a project, start Lawcheck through the package manager, as in `pnpm exec lawcheck --version`.
+`lawcheck --version` prints the version you installed. This page describes `0.1.0`. In a project, start Lawcheck through the package manager, as in `pnpm exec lawcheck --version`.
 
 `lawcheck doctor` checks the setup. It writes nothing. In a git repository with no law yet, it prints:
 

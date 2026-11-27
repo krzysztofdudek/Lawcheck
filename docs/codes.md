@@ -690,7 +690,7 @@ The installation of Lawcheck is damaged, or Node refuses the options that the ru
 
 **Fix**
 
-Install Lawcheck again, such as with `npm install --save-dev lawcheck@alpha`.
+Install Lawcheck again, such as with `npm install --save-dev lawcheck`.
 
 **Example**
 
@@ -820,7 +820,7 @@ A reader is the part of Lawcheck that parses one language and reports the uses o
 
 **Fix**
 
-For a damaged or missing grammar, install Lawcheck again, such as with `npm install --save-dev lawcheck@alpha`. A new install does not help a reader that fails on one file. Report that failure at https://github.com/krzysztofdudek/Lawcheck/issues with the file's language.
+For a damaged or missing grammar, install Lawcheck again, such as with `npm install --save-dev lawcheck`. A new install does not help a reader that fails on one file. Report that failure at https://github.com/krzysztofdudek/Lawcheck/issues with the file's language.
 
 **Example**
 

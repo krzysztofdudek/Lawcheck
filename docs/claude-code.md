@@ -28,7 +28,7 @@ types:
 The plugin ships without Lawcheck. It starts the `lawcheck` program on your `PATH`, unless the `runner` setting in `.lawcheck/config.yaml` names another command ([Settings](config.md#runner)). Install Lawcheck with npm:
 
 ```text
-$ npm install --global lawcheck@alpha
+$ npm install --global lawcheck
 ```
 
 ## 2. Add the plugin
@@ -118,14 +118,14 @@ In a repository with no law, type this in a session:
 /lawcheck:setup
 ```
 
-The command starts the setup skill of the plugin. A skill is a set of instructions that the agent follows for one task. Only you start this skill. If you ask for a law in other words, the agent tells you to type `/lawcheck:setup` and writes nothing. The skill follows [Let a coding agent write the first law](agent-setup.md). It describes the folders as [types](concepts.md#type). It writes down which type uses which today. It asks you before it forbids a [use](concepts.md#use) that the code already makes. It changes nothing outside `.lawcheck/`, except a CI job you ask for. It commits nothing unless you ask. At the end of the turn, the plugin tells you that the agent changed `.lawcheck/law.yaml` ([The end of a turn](plugin.md#the-end-of-a-turn)).
+The command starts the setup skill of the plugin. A skill is a set of instructions that the agent follows for one task. The agent can also start this skill when you ask it for a law in your own words. It writes no law you did not ask for. The skill follows [Let a coding agent write the first law](agent-setup.md). It describes the folders as [types](concepts.md#type). It writes down which type uses which today. It asks you before it forbids a [use](concepts.md#use) that the code already makes. It changes nothing outside `.lawcheck/`, except a CI job you ask for. It commits nothing unless you ask. At the end of the turn, the plugin tells you that the agent changed `.lawcheck/law.yaml` ([The end of a turn](plugin.md#the-end-of-a-turn)).
 
 You can ask for more in the words you type with the command. `/lawcheck:setup what could be better here?` asks for advice as well. The agent then writes at most three boundaries or rules that the code does not hold today. Each one comes with its evidence: the files and uses that break it, as Lawcheck counts them. You can also name a target in your words, such as `/lawcheck:setup the domain should not use the database`. The agent then writes the law the code should reach, and the steps to get there. Both go to files beside the law, `.lawcheck/advice.md` and `.lawcheck/target.md`, and nothing in them is law until you say yes to one item or one step ([The setup skill](plugin.md#the-setup-skill)).
 
 ## If it goes wrong
 
 - The agent gets the message that `lawcheck prime` did not run because `lawcheck was not found`. The plugin starts Lawcheck with the command of the `runner` setting, and it found no Lawcheck there. By default that command is `lawcheck` on your `PATH`. Install Lawcheck as [Install Lawcheck](#_1-install-lawcheck) says, then start a new session.
-- The repository has no law. At the start of the session, the plugin gives the agent two lines. The first says that the folder has no `.lawcheck/law.yaml`. The second tells the agent to write no law on its own: you start one by typing `/lawcheck:setup` ([Let the agent write the first law](#_7-let-the-agent-write-the-first-law)).
+- The repository has no law. At the start of the session, the plugin gives the agent two lines. The first says that the folder has no `.lawcheck/law.yaml`. The second tells the agent to write no law you did not ask for, and to start the setup skill when you ask for one ([Let the agent write the first law](#_7-let-the-agent-write-the-first-law)).
 - The agent ended its turn, and CI fails. The plugin judges the files of the turn alone, with no [base](concepts.md#base). It never passes `--review`. Its check therefore shows a missing review as a warning. CI judges the whole [change](concepts.md#change). It fails with `not-reviewed` when a reviewer rule has no verdict for a file ([CI and git hooks](ci.md)).
 - More than 1,000 files changed in a turn. The plugin skips the check before the end of the turn and prints one line that says so.
 - A background subagent, teammate or workflow is still running. The plugin holds back the check before the end of the turn. It runs that check at the first end of a turn after the background work has ended.

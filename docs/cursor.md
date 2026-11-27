@@ -7,7 +7,7 @@ Cursor loads the plugins that Claude Code has installed, so Cursor loads the Law
 The plugin ships without Lawcheck. It starts the `lawcheck` program on your `PATH`, unless the `runner` setting in `.lawcheck/config.yaml` names another command ([Settings](config.md#runner)). Install Lawcheck with npm:
 
 ```text
-$ npm install --global lawcheck@alpha
+$ npm install --global lawcheck
 ```
 
 ## 2. Add the plugin

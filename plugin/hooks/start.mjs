@@ -6,7 +6,7 @@ import { late, NO_PATHS, noResult, notFound } from './messages.mjs';
 const CONFIG_BYTES = 1024 * 1024;
 
 export const RUNNERS = {
-  global: { words: ['lawcheck'], install: 'npm i -g lawcheck@alpha' },
+  global: { words: ['lawcheck'], install: 'npm i -g lawcheck' },
   npx: { words: ['npx', '--no-install', 'lawcheck'], install: 'npm install' },
   pnpm: { words: ['pnpm', 'exec', 'lawcheck'], install: 'pnpm install' },
   yarn: { words: ['yarn', 'run', 'lawcheck'], install: 'yarn install' },

@@ -15,7 +15,7 @@ export async function scenario(page: Page): Promise<void> {
   const manifest = readJson('package.json');
   const marketplace = readJson('.claude-plugin/marketplace.json');
   const plugin = marketplace.plugins.find((entry: { source: string }) => entry.source === './plugin');
-  assert.equal(page.text('block 1 under "1. Install Lawcheck"'), `$ npm install --global ${manifest.name}@alpha`);
+  assert.equal(page.text('block 1 under "1. Install Lawcheck"'), `$ npm install --global ${manifest.name}`);
   const repository = /github\.com\/([^/]+\/[^/]+?)\.git$/.exec(manifest.repository.url)?.[1];
   assert.equal(page.text('block 1 under "2. Add the plugin"'), `claude plugin marketplace add ${repository}\nclaude plugin install ${plugin.name}@${marketplace.name}`);
 

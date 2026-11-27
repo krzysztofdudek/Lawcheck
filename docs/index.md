@@ -102,7 +102,7 @@ A [reviewer rule](reviewer-rules.md) is written in prose, such as "each error a 
 ## Try it
 
 ```text
-npm install --global lawcheck@alpha
+npm install --global lawcheck
 claude plugin marketplace add krzysztofdudek/Lawcheck
 claude plugin install lawcheck@lawcheck-marketplace
 lawcheck init
@@ -112,7 +112,7 @@ Start a new agent session after you install the plugin, so the agent gets the la
 
 The quick start ends on a rule about which layer may import which. For a first rule about the text of a file, such as no `console.log` in one folder, read [The first type and the first rule](first-law.md) or run `lawcheck docs first-law`.
 
-Lawcheck is an alpha. It needs Node 24 or later and git 2.34 or later.
+Lawcheck needs Node 24 or later and git 2.34 or later.
 
 Lawcheck sends code to a model only when you ask the model to judge a rule written in prose. A [script rule](concepts.md#script-rule) is code of your own repository. When Lawcheck runs one, the rule can read any file under the [root](concepts.md#law) of the law. A script rule cannot open a network connection.
 

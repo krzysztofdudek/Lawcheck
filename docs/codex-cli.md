@@ -26,7 +26,7 @@ types:
 The plugin ships without Lawcheck. It starts the `lawcheck` program on your `PATH`, unless the `runner` setting in `.lawcheck/config.yaml` names another command ([Settings](config.md#runner)). Install Lawcheck with npm:
 
 ```text
-$ npm install --global lawcheck@alpha
+$ npm install --global lawcheck
 ```
 
 ## 2. Add the plugin
@@ -102,7 +102,7 @@ LAWCHECK_PLUGIN_CHECK_AFTER_EDIT=false codex
 
 ## 7. Write the first law
 
-The plugin holds one skill, `lawcheck:setup`. A skill is a set of instructions that the agent follows for one task. This skill writes the first law of a repository with you. It changes nothing outside `.lawcheck/`, except a CI job you ask for. Only you start it: type `$lawcheck:setup` in Codex, followed by what you want. The plugin sets `allow_implicit_invocation: false` for the skill, so Codex never starts the skill from your prompt on its own. In a folder with no law, the agent tells you to type the command instead of writing a law. The skill can also give you advice on the architecture of your code, or plan a target: the law your code should reach. You ask for either in the words you type after the command. [The setup skill](plugin.md#the-setup-skill) says what the skill does. The agent asks its questions in a message. Its last message names the next step.
+The plugin holds one skill, `lawcheck:setup`. A skill is a set of instructions that the agent follows for one task. This skill writes the first law of a repository with you. It changes nothing outside `.lawcheck/`, except a CI job you ask for. Type `$lawcheck:setup` in Codex, followed by what you want, or ask the agent for a law in your own words: the agent can start the skill itself. In a folder with no law, the plugin tells the agent to write no law you did not ask for. The skill can also give you advice on the architecture of your code, or plan a target: the law your code should reach. You ask for either in the words you type after the command. [The setup skill](plugin.md#the-setup-skill) says what the skill does. The agent asks its questions in a message. Its last message names the next step.
 
 ## What this integration does not do
 

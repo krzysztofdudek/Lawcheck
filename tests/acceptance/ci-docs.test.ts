@@ -26,7 +26,7 @@ test('test 305: S7-1, the workflow of docs/ci.md installs the project with a com
   assert.ok(!runs.some((run) => /\bnpm ci\b/.test(run)), 'npm ci fails in a project with no package-lock.json');
   assert.ok(!steps.some((step) => step.with?.cache !== undefined), 'cache: npm needs a lockfile');
   assert.ok(runs.includes('npm install'), 'the install step is npm install');
-  assert.ok(page.includes('$ npm install --save-dev lawcheck@alpha'), 'the page gives the command that adds Lawcheck');
+  assert.ok(page.includes('$ npm install --save-dev lawcheck'), 'the page gives the command that adds Lawcheck');
   assert.ok(starts.length > 0);
   for (const line of starts) assert.match(line, /npx --no-install lawcheck /, `${line}: npx without --no-install downloads a tool on every run`);
   assert.equal(example('ci-install-pnpm'), 'pnpm install --frozen-lockfile');

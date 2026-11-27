@@ -93,7 +93,7 @@ The `runner` setting names the command that starts Lawcheck in this repository. 
 
 | `runner` | The command | Its install hint |
 |---|---|---|
-| `global` | `lawcheck` | `npm i -g lawcheck@alpha` |
+| `global` | `lawcheck` | `npm i -g lawcheck` |
 | `npx` | `npx --no-install lawcheck` | `npm install` |
 | `pnpm` | `pnpm exec lawcheck` | `pnpm install` |
 | `yarn` | `yarn run lawcheck` | `yarn install` |
@@ -117,7 +117,7 @@ Yarn 4.15.0 and later hold back a package published less than a day ago. Lawchec
 npmPreapprovedPackages: [lawcheck, "@chrisdudek/runes"]
 ```
 
-pnpm 11 and later also hold back a package published less than a day ago. They do not stop the install. `pnpm add --save-dev lawcheck@alpha` installs the newest version that is at least a day old. On the first day after a release, you therefore get the release before it. pnpm holds Runes back in the same way. With this line in `pnpm-workspace.yaml`, pnpm installs both new versions on that first day:
+pnpm 11 and later also hold back a package published less than a day ago. They do not stop the install. `pnpm add --save-dev lawcheck` installs the newest version that is at least a day old. On the first day after a release, you therefore get the release before it. pnpm holds Runes back in the same way. With this line in `pnpm-workspace.yaml`, pnpm installs both new versions on that first day:
 
 ```text
 minimumReleaseAgeExclude: [lawcheck, "@chrisdudek/runes"]

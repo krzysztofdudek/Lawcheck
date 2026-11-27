@@ -709,3 +709,9 @@ Not taken: a budget for test 1410 set from its measured macOS times. It fixes on
 This replaces the part of decision 204 that says the README and the landing say what was checked for Cursor and what was not. The README, the landing page, the front page of the docs and the GitHub description name no Cursor at all. `docs/cursor.md` stays, with the hook's support for Cursor and the list of what no one checked, and the CHANGELOG keeps its entry. The rest of decision 204 holds.
 
 Why: Krzysztof, 2026-11-27 (translated from Polish), on the drafts of the README and the landing page: "You do not mention that we did not test Cursor." No session of Cursor has run the plugin, so the pages people read first claim nothing for it, and a sentence that Cursor was not tested reads as a claim about it.
+
+## Decision (number at merge). 0.1.0 is released without a Nightly, and the gate returns after it
+
+The release workflow of 0.1.0 has no job that asks for a green whole Nightly on the tagged commit, and the tag of 0.1.0 is laid without one. For 0.1.0 alone, this sets aside decision 233 and the part of decision 91 that holds a release to a green Nightly. Once 0.1.0 is published, the job returns as it was, with its tests, and every later release needs its green whole Nightly again.
+
+Why: Krzysztof, 2026-11-27 (translated from Polish): "We do a release without alpha. 0.1.0 without Nightly. We just bump the version AS-IS." The code of 0.1.0 is the code of 0.1.0-alpha.6, whose tagged commit had its green whole Nightly. 0.1.0 changes the version, the install lines that named `@alpha`, the pages people read and the setup skill, which the agent may now start itself. His row of the kind `ci-changed` in tests/weakenings.md approves the change of release.yml.

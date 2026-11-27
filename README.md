@@ -70,9 +70,9 @@ On 2026-11-23 I gave Claude Code the same prompt in 80 sessions of a small shop 
 
 ## Try it
 
-Lawcheck is an alpha. It needs Node 24 or later and git 2.34 or later.
+Lawcheck needs Node 24 or later and git 2.34 or later.
 
-1. Install the tool: `npm install --global lawcheck@alpha`.
+1. Install the tool: `npm install --global lawcheck`.
 2. Add the plugin to your agent, then start a new agent session: `claude plugin marketplace add krzysztofdudek/Lawcheck` and `claude plugin install lawcheck@lawcheck-marketplace`.
 3. Create the law at the root of your repository: `lawcheck init` creates an empty `.lawcheck/law.yaml`. Then type `/lawcheck:setup` in Claude Code (`$lawcheck:setup` in Codex), and the agent describes your folders as types. It starts from the rules in your `CLAUDE.md`, `AGENTS.md` and linter config, asks you before it forbids a use the code already makes, and changes nothing outside `.lawcheck/`. To practise first on a new repository with no agent, `lawcheck docs quick-start` walks you to a finding by hand.
 4. Check: `lawcheck check --base main`. It judges the files your branch changed, and `lawcheck check --full` lists older breaches as debt that does not fail the run. If your code already keeps the law, the check passes; to see a finding, import a file the law forbids, such as an HTTP handler into the business logic. None of this needs a model or a key.

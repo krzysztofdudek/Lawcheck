@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { chmodSync, existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { delimiter, join } from 'node:path';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { parse } from 'yaml';
 import { COMMIT_GROUPS, EMPTY_GROUPS, nightly, NIGHTLY_GROUPS, ROOT, setFiles } from '../harness/sets.ts';
@@ -10,7 +10,6 @@ import { PLATFORM_SKIPS } from '../harness/skips.ts';
 import { continueOnErrorProblems } from '../harness/workflows.ts';
 import { chosenTests, inputProblems, NIGHTLY_JOBS, SEVERAL_SYSTEMS } from '../harness/chosen.ts';
 import { judgeRun } from '../harness/reporter.ts';
-import { platformSkip, testFolder } from '../harness/tool.ts';
 
 type Job = { 'continue-on-error'?: unknown; strategy?: { matrix?: { group?: string[]; os?: string[] | string; include?: Record<string, unknown>[] } }; steps?: { name?: string; uses?: string; run?: string; if?: string; 'continue-on-error'?: unknown }[]; needs?: string | string[]; name?: string; if?: string; 'runs-on'?: string };
 type Workflow = { jobs: Record<string, Job> };
@@ -357,60 +356,10 @@ test('test 1431: the tests a narrowed run starts do not see the list it chose, s
   assert.deepEqual(Object.keys(process.env).filter((name) => name === 'LAWCHECK_ONLY' || /\btests? 1431\b/.test(process.env[name]!)), []);
 });
 
-// The script of release.yml's job nightly, run with a gh that answers from a list of runs and applies the script's own --jq with jq.
-function releaseVerdict(runs: { id: number; head_sha: string; event: string; status: string; conclusion: string | null; display_title: string }[]) {
-  const step = readChosen('release.yml').jobs.nightly!.steps![0]!;
-  const folder = testFolder('lawcheck-release-nightly-');
-  const dir = folder.dir;
-  try {
-    writeFileSync(join(dir, 'runs.json'), JSON.stringify({ workflow_runs: runs.map((run) => ({ ...run, html_url: `https://example.invalid/${run.id}` })) }));
-    // As GitHub does, it lists the runs of the commit the query names, and the runs of every commit when it names none.
-    const standIn = [
-      '#!/bin/sh',
-      'case "$2" in',
-      '  repos/o/r/commits/refs/tags/v9.9.9) echo abc123 ;;',
-      '  repos/o/r/actions/workflows/nightly.yml/runs\\?*)',
-      '    sha=$(printf %s "${2#*\\?}" | tr "&" "\\n" | sed -n "s/^head_sha=//p")',
-      `    jq --arg sha "$sha" '.workflow_runs |= map(select($sha == "" or .head_sha == $sha))' "$FAKE_RUNS" | jq -r "$4" ;;`,
-      '  *) exit 3 ;;',
-      'esac',
-    ];
-    writeFileSync(join(dir, 'gh'), `${standIn.join('\n')}\n`);
-    chmodSync(join(dir, 'gh'), 0o755);
-    const run = spawnSync('bash', ['-c', step.run!], { encoding: 'utf8', env: { ...process.env, PATH: `${dir}${delimiter}${process.env.PATH}`, FAKE_RUNS: join(dir, 'runs.json'), REPO: 'o/r', TAG: 'v9.9.9', COMMIT: 'abc123' } });
-    return { status: run.status, out: run.stdout + run.stderr };
-  } finally {
-    folder.remove();
-  }
-}
-
-test('test 1432: only a run with no inputs takes the name release.yml counts', () => {
+test('test 1432: only a run with no inputs takes the name of a whole Nightly', () => {
   const nightly = readChosen('nightly.yml');
   assert.equal(nightly['run-name'], `\${{ (${NARROWED}) && format('Nightly of chosen parts (jobs={0} tests={1} os={2})', inputs.jobs || 'all', inputs.tests || 'all', inputs.os || 'all') || '${WHOLE}' }}`);
   assert.equal(nightly.jobs.chosen!.if, `\${{ ${NARROWED} }}`);
-  assert.ok(readChosen('release.yml').jobs.nightly!.steps![0]!.run!.includes(`.display_title == "${WHOLE}"`));
-});
-
-test('test 1433: release.yml takes one green whole Nightly on the tagged commit, and refuses a run of chosen parts, a red or unfinished run, a called one and none', (t) => {
-  const skip = platformSkip('the whole test');
-  if (skip !== null) return t.skip(skip);
-  const whole = { id: 1, head_sha: 'abc123', event: 'workflow_dispatch', status: 'completed', conclusion: 'success', display_title: WHOLE };
-  const taken = releaseVerdict([whole]);
-  assert.equal(taken.status, 0, taken.out);
-  assert.match(taken.out, /green whole Nightlies:\n1 workflow_dispatch completed success/);
-  const refused = [
-    [{ ...whole, display_title: 'Nightly of chosen parts (jobs=limits tests=test 251 os=all)' }],
-    [{ ...whole, conclusion: 'failure' }, { ...whole, id: 2, conclusion: 'cancelled' }],
-    [{ ...whole, status: 'in_progress', conclusion: null }],
-    [{ ...whole, event: 'push' }],
-    [{ ...whole, head_sha: 'def456' }],
-    [],
-  ];
-  for (const runs of refused) {
-    const verdict = releaseVerdict(runs);
-    assert.equal(verdict.status, 1, `${JSON.stringify(runs)}: ${verdict.out}`);
-    assert.match(verdict.out, /has no green whole Nightly/);
-  }
 });
 
 test('test 1434: the nightly runs the commit set once on each system', () => {

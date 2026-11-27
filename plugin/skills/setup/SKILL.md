@@ -1,7 +1,6 @@
 ---
 name: setup
-description: Writes the first Lawcheck law of this repository from the code as it is, and asks the user before it forbids a use the code already makes. When the user asks, it also writes advice on the architecture, or a target architecture with a plan, as a proposal beside the law that becomes law only item by item on the user's yes. Only the user starts it, by typing /lawcheck:setup.
-disable-model-invocation: true
+description: Writes the first Lawcheck law of this repository from the code as it is, and asks the user before it forbids a use the code already makes. When the user asks, it also writes advice on the architecture, or a target architecture with a plan, as a proposal beside the law that becomes law only item by item on the user's yes. Use it when the user asks for a Lawcheck law, or for Lawcheck to be set up in this repository; the user can also type /lawcheck:setup.
 ---
 
 # Set up Lawcheck
@@ -10,11 +9,11 @@ disable-model-invocation: true
 
 Write no text to the user until you ask a question or give the final message. In Claude Code, every text between two tool calls is a message to the user, so put none there: no note on what you read, run or found.
 
-Read the words the user typed with the command and before it, and pick the row of "What the user asked for" below. Ask no question about which row.
+Read what the user asked for, the words typed with the command and before it or the request that started this skill, and pick the row of "What the user asked for" below. Ask no question about which row.
 
 Run `lawcheck docs agent-setup`, in every row. That page is the procedure of the first law, and the files of advice and of a target use its parts. It comes with the Lawcheck that runs here, so it matches the commands. Say nothing about advice or a target before that page and the measurements it asks for have run.
 
-- The shell finds no `lawcheck`: give the user the two ways to install it, and let the user choose and run one. `npm install --global lawcheck@alpha` puts one program on this machine, for every repository. `npm install --save-dev lawcheck@alpha` pins the version in this project's `package.json`, for the whole team and CI; then run each `lawcheck` as `npx --no-install lawcheck`, and write `runner: npx` into `.lawcheck/config.yaml` after `lawcheck init`. End the turn. When the user says it is installed, go on with what the user first asked for. Never ask the user to type the command or the request again.
+- The shell finds no `lawcheck`: give the user the two ways to install it, and let the user choose and run one. `npm install --global lawcheck` puts one program on this machine, for every repository. `npm install --save-dev lawcheck` pins the version in this project's `package.json`, for the whole team and CI; then run each `lawcheck` as `npx --no-install lawcheck`, and write `runner: npx` into `.lawcheck/config.yaml` after `lawcheck init`. End the turn. When the user says it is installed, go on with what the user first asked for. Never ask the user to type the command or the request again.
 - Lawcheck answers that it has no topic `agent-setup`: the installed Lawcheck is older than this plugin. Tell the user to update it with the command of the way it was installed, and stop.
 
 Every message to the user follows the page's part "The words for the user". The page's steps 3 and 10 may ask the user questions. Such a message stops after the last question, with no next step. The final message carries the next step. Every reply after the user's last answer is the final message, whole, with all its labels: also after "no", "not now", "thanks" or "I'll think about it".
@@ -44,7 +43,7 @@ Read a file of `references/` only for the row that names it.
 
 ## No offer at the end
 
-No final message offers advice, a target or another run of the skill. The user asks for them in their own words, by typing `/lawcheck:setup` again.
+No final message offers advice, a target or another run of the skill. The user asks for them in their own words, with or without `/lawcheck:setup`.
 
 A line that says how to make an item or a step of a proposal file law is no offer, because the file already holds that item.
 
