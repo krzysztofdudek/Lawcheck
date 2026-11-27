@@ -140,7 +140,7 @@ export function facts() {
     copy: { skip: copy.skip, copy: copy.copy, copied: copy.copied, heroNote: copy.heroNote },
     links: { docs: LINK.docs, github: GITHUB, npm: NPM },
     head: head(),
-    lead: readme(fragments.sentence('README.md', 'Lawcheck', 'Lawcheck checks your coding agent')),
+    lead: readme(fragments.sentence('README.md', 'Lawcheck', 'Write your architecture rules')),
     facts: copy.facts.map((fact) => ({ label: fact.label, text: own(fact.text) })),
     why: {
       kicker: readme(fragments.heading('README.md', 'Why not `CLAUDE.md` or your linter')),

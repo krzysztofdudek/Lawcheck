@@ -367,14 +367,14 @@ test('test 1140: the redirect file of the landing sends /docs, /docs/ and /docs/
   }
 });
 
-test('test 1426: the first contact opens with one sentence: README.md, docs/index.md and the h1 of the landing page start with it, package.json starts with its words, and README.md, docs/index.md and the landing page each show a law with may_use and a script rule, the rule file, and a finding of each', () => {
-  const opener = "Lawcheck checks your coding agent's edits against the architecture rules you write down.";
+test('test 1426: the first contact opens with one sentence: README.md, docs/index.md, the h1 of the landing page and package.json start with it, and README.md, docs/index.md and the landing page each show a law with may_use and a script rule, the rule file, and a finding of each', () => {
+  const opener = "Write your architecture rules once, and stop reading your agent's code to enforce them.";
   const fragments = new Fragments(ROOT);
-  assert.equal(fragments.sentence('README.md', 'Lawcheck', 'Lawcheck checks'), opener);
+  assert.equal(fragments.sentence('README.md', 'Lawcheck', 'Write your architecture rules'), opener);
   assert.ok(read('docs/index.md').startsWith(`# Lawcheck\n\n${opener} `), 'docs/index.md opens with the sentence');
-  assert.ok(read('site/landing/facts.ts').includes("lead: readme(fragments.sentence('README.md', 'Lawcheck', 'Lawcheck checks your coding agent'))"), 'the h1 of the landing page is the sentence of README.md');
+  assert.ok(read('site/landing/facts.ts').includes("lead: readme(fragments.sentence('README.md', 'Lawcheck', 'Write your architecture rules'))"), 'the h1 of the landing page is the sentence of README.md');
   assert.ok(read('site/landing/Landing.vue').includes('<h1 class="lead" v-html="data.lead" />'));
-  assert.ok((JSON.parse(read('package.json')) as { description: string }).description.startsWith("Checks your coding agent's edits against the architecture rules you write"), 'package.json opens with the words of the sentence');
+  assert.ok((JSON.parse(read('package.json')) as { description: string }).description.startsWith(opener), 'package.json opens with the sentence');
   const shown = [
     { page: 'README.md', law: ['A law, a rule and a finding', 'lawcheck: 0.1.0'], rule: ['A law, a rule and a finding', 'export function check'], finding: ['A law, a rule and a finding', '$ lawcheck check'] },
     { page: 'docs/index.md', law: ['A rule and a finding', 'lawcheck: 0.1.0'], rule: ['A rule and a finding', 'export function check'], finding: ['A rule and a finding', 'lawcheck: FAIL'] },
