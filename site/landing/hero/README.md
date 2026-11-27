@@ -12,7 +12,7 @@ src/core/loyalty.ts:9  error[no-clock]  reads the clock
 src/core/pricing.py:1  error[forbidden-use]  core may not use api (src/api/money.py); its may_use is [core]
 ```
 
-The hero shows each line up to its first closing parenthesis, so the two lines of `forbidden-use` end before `; its may_use is [core]`. The failed pull request shows the first line the same way.
+The hero shows these lines as they are. The failed pull request shows the first one.
 
 ## Written in the form of real output
 

@@ -84,9 +84,9 @@ function scenesOf(mark) {
     </div>
     ${one ? `<div class="verdict" ${show(t, 1.0, 0.2)}>
       <div class="by">${mark} Lawcheck, after the edit</div>
-      ${err(1.0, 'src/core/loyalty.ts:1  <b>error[forbidden-use]</b>  core may not use api (src/api/format.ts)', 'imports the HTTP layer')}
+      ${err(1.0, 'src/core/loyalty.ts:1  <b>error[forbidden-use]</b>  core may not use api (src/api/format.ts); its may_use is [core]', 'imports the HTTP layer')}
       ${two ? err(3.2, 'src/core/loyalty.ts:9  <b>error[no-clock]</b>  reads the clock', 'calls new Date()') : ''}
-      ${t >= 5.2 ? err(5.2, 'src/core/pricing.py:1  <b>error[forbidden-use]</b>  core may not use api (src/api/money.py)', 'the same law, in Python') : ''}
+      ${t >= 5.2 ? err(5.2, 'src/core/pricing.py:1  <b>error[forbidden-use]</b>  core may not use api (src/api/money.py); its may_use is [core]', 'the same law, in Python') : ''}
     </div>` : ''}
     ${t >= 6.2 ? `<div class="langrow" ${show(t, 6.2)}>${['TypeScript', 'JavaScript', 'Python', 'Go', 'Rust', 'Java', 'Kotlin', 'C#', 'C', 'C++', 'PHP', 'Ruby'].map((x) => `<span>${x}</span>`).join('')}</div>` : ''}`;
     } },
@@ -112,7 +112,7 @@ function scenesOf(mark) {
       return `
     <div class="card" ${show(t, 0)}>
       <div class="h">Pull request · Add a loyalty discount</div>
-      <div class="prrow"><span class="mark-c ${ok ? 'ok' : 'no'}">${ok ? '✓' : '✕'}</span><div><div class="pt">lawcheck ${ok ? 'passed' : 'failed'}</div><div class="mono pd">${ok ? '<span class="pass">lawcheck: PASS  3 changed files (against origin/main)</span>' : 'src/core/loyalty.ts:1  <span class="fail">error[forbidden-use]</span>  core may not use api (src/api/format.ts)'}</div></div></div>
+      <div class="prrow"><span class="mark-c ${ok ? 'ok' : 'no'}">${ok ? '✓' : '✕'}</span><div><div class="pt">lawcheck ${ok ? 'passed' : 'failed'}</div><div class="mono pd">${ok ? '<span class="pass">lawcheck: PASS  3 changed files (against origin/main)</span>' : 'src/core/loyalty.ts:1  <span class="fail">error[forbidden-use]</span>  core may not use api (src/api/format.ts); its may_use is [core]'}</div></div></div>
       ${ok ? `<div class="lbl" style="margin-top:12px;font-size:clamp(15px,1.3vw,19px)" ${show(t, 2.6)}>After the fix, the same pull request passes.</div>` : ''}
     </div>`;
     } },
