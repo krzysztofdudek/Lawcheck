@@ -57,11 +57,9 @@ holds:
     - { title: Debt, text: "A check judges the change. `--full` lists older breaches as debt, which does not fail the run.", page: adopt-in-an-existing-repository }
     - { title: Waivers, text: "One rule off on one line, with the reason in the code. The plugin tells you when the agent adds one.", page: waivers }
 measured:
-  before: "On 2026-11-23 I gave Claude Code the same prompt in 80 sessions of a small shop repository. In 20 of them no rule was written anywhere, and the agent made the business logic import from the HTTP handlers in"
+  before: "In a small pilot, with no rule written down, Claude Code made the business logic import the HTTP handlers in"
   count: 8 of 20
-  after: "sessions, and all 10 tests passed each time."
-  list: "[film/pilot.json](../../film/pilot.json) lists every session."
-  scope: That was one prompt, one repository and one model.
+  after: "sessions, and all 10 tests still passed."
 tutorial:
   kicker: The tutorial
   heading: "{count} chapters, each a real session."
@@ -73,7 +71,7 @@ tutorial:
     write-a-reviewer-rule: Write a rule in prose
     ci: CI
 limits:
-  heading: What it does not do yet.
+  heading: What it does not do.
   items:
     - "A pull request can edit its own law. In CI, your team chooses which law judges it: the change's own, the base's or both."
     - "Lawcheck does not read every form of use. It misses an `import()` of a variable, `importlib.import_module`, reflection, and a Java call written by its full name with no import. {link}."
