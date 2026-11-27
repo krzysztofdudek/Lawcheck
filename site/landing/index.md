@@ -1,6 +1,6 @@
 ---
 title: "Lawcheck: architecture and rule checks for coding agents"
-summary: "Write an architecture rule down once, and stop watching for it in every change your coding agent makes. Lawcheck checks it in the hooks of coding agents and in CI."
+summary: "Write your architecture rules once, and stop reading your agent's code to enforce them. Lawcheck checks them in the hooks of coding agents and in CI."
 skip: Skip to content
 heroNote: "The animation shows real output of Lawcheck 0.1.0-alpha.6 on a sample repository. The agent's code in it is an example."
 facts:

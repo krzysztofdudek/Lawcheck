@@ -368,11 +368,11 @@ test('test 1140: the redirect file of the landing sends /docs, /docs/ and /docs/
 });
 
 test('test 1426: the first contact opens with one sentence: README.md, docs/index.md and the h1 of the landing page start with it, package.json starts with its words, and README.md, docs/index.md and the landing page each show a law with may_use and a script rule, the rule file, and a finding of each', () => {
-  const opener = 'Write an architecture rule down once, and stop watching for it in every change your coding agent makes.';
+  const opener = "Write your architecture rules once, and stop reading your agent's code to enforce them.";
   const fragments = new Fragments(ROOT);
-  assert.equal(fragments.sentence('README.md', 'Lawcheck', 'Write an architecture rule'), opener);
+  assert.equal(fragments.sentence('README.md', 'Lawcheck', 'Write your architecture rules'), opener);
   assert.ok(read('docs/index.md').startsWith(`# Lawcheck\n\n${opener} `), 'docs/index.md opens with the sentence');
-  assert.ok(read('site/landing/facts.ts').includes("lead: readme(fragments.sentence('README.md', 'Lawcheck', 'Write an architecture rule'))"), 'the h1 of the landing page is the sentence of README.md');
+  assert.ok(read('site/landing/facts.ts').includes("lead: readme(fragments.sentence('README.md', 'Lawcheck', 'Write your architecture rules'))"), 'the h1 of the landing page is the sentence of README.md');
   assert.ok(read('site/landing/Landing.vue').includes('<h1 class="lead" v-html="data.lead" />'));
   assert.ok((JSON.parse(read('package.json')) as { description: string }).description.startsWith(opener), 'package.json opens with the sentence');
   const shown = [

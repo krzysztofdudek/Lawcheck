@@ -25,7 +25,7 @@ function tsLine(line) {
 }
 
 const FLOW = ['edit', 'check', 'fix', 'pull request'];
-const TAG = 'Write an architecture rule down once, and stop watching for it in every change your coding agent makes.';
+const TAG = 'Write your architecture rules once, and stop reading your agent's code to enforce them.';
 
 function scenesOf(mark) {
   return [
