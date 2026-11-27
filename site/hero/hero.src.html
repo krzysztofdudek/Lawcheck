@@ -311,7 +311,7 @@ const SCENES = [
         <div class="h fname">.lawcheck/law.yaml</div>
         <div class="mono" style="font-size:clamp(13px,1.15vw,17px)">${['core:', '  paths: ["src/core/**"]', '  may_use: [core]', '  rules: [no-clock]'].map((l) => `<div>${yamlLine(l)}</div>`).join('')}</div>
         <div class="txt" style="margin-top:6px">One law reads the imports of 12 languages.</div>
-        ${broke ? `<div class="outcome loud" ${show(t, 4.1, 0.3)}><span class="dot"></span>Checks right after each edit, before the agent finishes, and in CI.</div>` : ''}
+        ${broke ? `<div class="outcome loud" ${show(t, 4.1, 0.3)}><span class="dot"></span>Checks while the agent writes code, again before it finishes, and in CI.</div>` : ''}
       </div>
     </div>`;
   } },
@@ -325,7 +325,7 @@ const SCENES = [
       <div class="code mono">${row(1, 'import { formatMoney } from "../api/format.ts";', one)}<div class="ln gap"><span class="no"></span><span class="src">…</span><span></span></div>${row(9, '  const today = new Date();', two)}</div>
     </div>
     ${one ? `<div class="verdict" ${show(t, 1.0, 0.2)}>
-      <div class="by">${MARK} Lawcheck, right after each edit</div>
+      <div class="by">${MARK} Lawcheck, after the edit</div>
       ${err(1.0, 'src/core/loyalty.ts:1  <b>error[forbidden-use]</b>  core may not use api (src/api/format.ts)', 'imports the HTTP layer')}
       ${two ? err(3.2, 'src/core/loyalty.ts:9  <b>error[no-clock]</b>  reads the clock', 'calls new Date()') : ''}
       ${t >= 5.2 ? err(5.2, 'src/core/pricing.py:1  <b>error[forbidden-use]</b>  core may not use api (src/api/money.py)', 'the same law, in Python') : ''}
@@ -362,7 +362,7 @@ const SCENES = [
     <div class="end">
       <div class="what" style="font-size:clamp(24px,2.9vw,42px);font-weight:800;max-width:1000px;line-height:1.2" ${show(t, 0)}>Write a rule once. Stop having to remember it.</div>
       <div class="lbl" style="font-size:clamp(16px,1.5vw,22px);color:var(--brand);font-weight:700" ${show(t, 0.2)}>One law. 12 languages. In your agent's turn and in CI.</div>
-      <div class="enforce" ${show(t, 0.3)}><span><b>After each edit</b> file and line to the agent</span><span><b>Before the agent finishes</b> sent back to fix it, up to 3 times</span><span><b>Pull request</b> fails in CI</span></div>
+      <div class="enforce" ${show(t, 0.3)}><span><b>While it writes</b> file and line to the agent</span><span><b>Before the agent finishes</b> sent back to fix it, up to 3 times</span><span><b>Pull request</b> fails in CI</span></div>
       <ol class="steps3">
         <li ${show(t, 0.5)}><span class="n">1</span><span>Install the tool</span><code>npm install --global lawcheck@alpha</code></li>
         <li ${show(t, 0.9)}><span class="n">2</span><span>Add the plugin to your agent, then start a new session</span><code>claude plugin marketplace add krzysztofdudek/Lawcheck</code><code>claude plugin install lawcheck@lawcheck-marketplace</code></li>

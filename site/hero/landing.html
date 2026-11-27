@@ -136,7 +136,7 @@ footer a { color: var(--muted); }
     <span class="branch" aria-hidden="true"></span>
     <h1 class="lead">Lawcheck checks your coding agent's edits against the architecture rules you write down.</h1>
     <div class="facts">
-      <div class="fact"><b>When it checks</b><span>After each edit, at the end of the agent's turn, and in CI.</span></div>
+      <div class="fact"><b>When it checks</b><span>While the agent writes code, again before it finishes, and in CI.</span></div>
       <div class="fact"><b>Where</b><span>One law reads the imports of twelve languages, from TypeScript and Python to Go and Java. Limits names the forms it misses.</span></div>
       <div class="fact"><b>Price</b><span>Free and open source under the MIT license. It runs on your machine.</span></div>
       <div class="fact"><b>AI model</b><span>Only for rules written in prose, when you run <code>--review</code>, through a provider you pick and pay for, or a local Ollama.</span></div>
@@ -151,7 +151,7 @@ footer a { color: var(--muted); }
       <thead><tr><th></th><th scope="col"><code>CLAUDE.md</code> or <code>AGENTS.md</code></th><th scope="col">Your linter</th><th scope="col" class="us">The law of Lawcheck</th></tr></thead>
       <tbody>
         <tr><th scope="row">States the rule</th><td class="yes">The agent reads it</td><td class="yes">For one language</td><td class="us yes">For twelve languages, in one file</td></tr>
-        <tr><th scope="row">Checks while the agent works</th><td class="no">Claude Code does not check the code against it</td><td class="no">Only through a hook you write</td><td class="us yes">After each edit, and sends the agent back at the end of its turn, up to three times</td></tr>
+        <tr><th scope="row">Checks while the agent works</th><td class="no">Claude Code does not check the code against it</td><td class="no">Only through a hook you write</td><td class="us yes">While it writes code, and before it finishes it sends the agent back, up to three times</td></tr>
         <tr><th scope="row">Checks in CI</th><td class="no">No</td><td class="yes">Yes</td><td class="us yes">Yes, with no key and no network unless you set it up to review</td></tr>
       </tbody>
     </table>
@@ -189,7 +189,7 @@ footer a { color: var(--muted); }
       <li><span class="n">3</span><div><div class="what">Create the law: your agent describes your folders as types</div><div class="cmd"><code>lawcheck init</code><button type="button">Copy</button></div><div class="cmd"><code>/lawcheck:setup</code><button type="button">Copy</button></div>
         <p class="small"><code>lawcheck init</code> creates an empty law. Then type <code>/lawcheck:setup</code> to your agent (<code>$lawcheck:setup</code> in Codex). It starts from your <code>CLAUDE.md</code>, <code>AGENTS.md</code> and linter config, asks before it forbids a use the code already makes, and changes nothing outside <code>.lawcheck/</code>. To practise by hand on a new repository first: <code>lawcheck docs quick-start</code>.</p>
       </div></li>
-      <li><span class="n">4</span><div><div class="what">Check</div><div class="cmd"><code>lawcheck check</code><button type="button">Copy</button></div></div></li>
+      <li><span class="n">4</span><div><div class="what">Check</div><div class="cmd"><code>lawcheck check</code><button type="button">Copy</button></div><p class="small">It judges the files you changed; <code>lawcheck check --full</code> lists older breaches as debt that does not fail the run. If your code already keeps the law, the check passes: break a rule on purpose to see a finding.</p></div></li>
     </ol>
     <p class="small">Lawcheck is an alpha. It needs Node 24 or later and git 2.34 or later. The hooks are plain scripts in <a href="https://github.com/krzysztofdudek/Lawcheck/tree/main/plugin/hooks">plugin/hooks</a>.</p>
   </section>

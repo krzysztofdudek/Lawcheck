@@ -1,8 +1,8 @@
 # Lawcheck
 
-[![Claude Code imports the HTTP handlers into the business logic, and the tests pass. Lawcheck names the line. With the same prompt, the law and the plugin, the agent keeps the layers apart.](https://github.com/krzysztofdudek/Lawcheck/releases/download/v0.1.0-alpha.6/loop.gif)](https://lawcheck.dev)
+[![Claude Code imports the HTTP handlers into the business logic, and the tests pass. Lawcheck names the line.](https://github.com/krzysztofdudek/Lawcheck/releases/download/v0.1.0-alpha.6/loop.gif)](https://lawcheck.dev)
 
-Lawcheck checks your coding agent's edits against the architecture rules you write down. It runs after each edit, at the end of the agent's turn and in CI, with one law for twelve languages. It is free and open source under the [MIT license](LICENSE), and it runs on your machine. It calls an AI model only for a rule written in prose, and only when you run `lawcheck check --review`, through a provider you pick and pay for yourself, or a local Ollama.
+Lawcheck checks your coding agent's edits against the architecture rules you write down. It checks while the agent writes code, again before the agent finishes, and in CI, with one law that reads the imports of twelve languages. It is free and open source under the [MIT license](LICENSE), and it runs on your machine. It calls an AI model only for a rule written in prose, and only when you run `lawcheck check --review`, through a provider you pick and pay for yourself, or a local Ollama.
 
 ## Why not `CLAUDE.md` or your linter
 
@@ -75,7 +75,7 @@ Lawcheck is an alpha. It needs Node 24 or later and git 2.34 or later.
 1. Install the tool: `npm install --global lawcheck@alpha`.
 2. Add the plugin to your agent, then start a new agent session: `claude plugin marketplace add krzysztofdudek/Lawcheck` and `claude plugin install lawcheck@lawcheck-marketplace`.
 3. Create the law at the root of your repository: `lawcheck init` creates an empty `.lawcheck/law.yaml`. Then type `/lawcheck:setup` in Claude Code (`$lawcheck:setup` in Codex), and the agent describes your folders as types. It starts from the rules in your `CLAUDE.md`, `AGENTS.md` and linter config, asks you before it forbids a use the code already makes, and changes nothing outside `.lawcheck/`. To practise first on a new repository with no agent, `lawcheck docs quick-start` walks you to a finding by hand.
-4. Check: `lawcheck check`. None of this needs a model or a key.
+4. Check: `lawcheck check`. It judges the files you changed, and `lawcheck check --full` lists older breaches as debt that does not fail the run. If your code already keeps the law, the check passes; break a rule on purpose to see a finding. None of this needs a model or a key.
 
 Codex and GitHub Copilot CLI install the same plugin with their own two commands: `lawcheck docs codex-cli` and `lawcheck docs copilot-cli`. Any other agent gets one line in its instructions file, `Run lawcheck prime at the start of every session and follow it.`, and then nothing sends it back. The hooks are plain scripts in [plugin/hooks](plugin/hooks), and `lawcheck docs plugin` says what each one does. A script rule is your repository's own code: it can read every file under the root, and it cannot open a network connection.
 
