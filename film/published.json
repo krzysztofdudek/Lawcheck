@@ -1,4 +1,15 @@
 {
   "chapters": [],
-  "loop": null
+  "loop": null,
+  "hero": {
+    "seconds": 55,
+    "files": {
+      "gif": {
+        "name": "hero.gif",
+        "sha256": "3677979d0567561930fe909e65033e7a4a81f21f5b3d10b3436fde45d0227f6e",
+        "bytes": 1151620
+      }
+    },
+    "release": "v0.1.0"
+  }
 }
