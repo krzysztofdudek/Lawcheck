@@ -50,7 +50,7 @@ function scenesOf(mark) {
       <div class="group api" ${show(t, 0)}><div class="name">HTTP</div><div class="path">src/api</div><div class="langs"><span>format.ts</span><span>money.py</span></div></div>
     </div>
     <div class="lbl" style="text-align:center;font-size:clamp(18px,1.8vw,27px);font-weight:800;color:var(--lc-fail)" ${show(t, 1.0)}>The business logic must not import HTTP.</div>` },
-    { len: 8.6, flow: null, caption: (t) => (t < 3.4 ? 'You can state the rule in CLAUDE.md, in your linter, or in the law.' : 'Lawcheck\'s plugin checks while your agent works, and again in CI.'), draw: (t) => {
+    { len: 8.6, flow: null, caption: (t) => (t < 3.4 ? 'You can state the rule in CLAUDE.md, in your linter, or in the law.' : 'Lawcheck\'s plugin checks while your agent works. Lawcheck checks again in CI.'), draw: (t) => {
       const broke = t >= 3.4;
       return `
     <div class="three-col">
@@ -86,9 +86,8 @@ function scenesOf(mark) {
       <div class="by">${mark} Lawcheck, after the edit</div>
       ${err(1.0, 'src/core/loyalty.ts:1  <b>error[forbidden-use]</b>  core may not use api (src/api/format.ts); its may_use is [core]', 'imports the HTTP layer')}
       ${two ? err(3.2, 'src/core/loyalty.ts:9  <b>error[no-clock]</b>  reads the clock', 'calls new Date()') : ''}
-      ${t >= 5.2 ? err(5.2, 'src/core/pricing.py:1  <b>error[forbidden-use]</b>  core may not use api (src/api/money.py); its may_use is [core]', 'the same law, in Python') : ''}
     </div>` : ''}
-    ${t >= 6.2 ? `<div class="langrow" ${show(t, 6.2)}>${['TypeScript', 'JavaScript', 'Python', 'Go', 'Rust', 'Java', 'Kotlin', 'C#', 'C', 'C++', 'PHP', 'Ruby'].map((x) => `<span>${x}</span>`).join('')}</div>` : ''}`;
+    ${t >= 5.2 ? `<div class="langrow" ${show(t, 5.2)}>${['TypeScript', 'JavaScript', 'Python', 'Go', 'Rust', 'Java', 'Kotlin', 'C#', 'C', 'C++', 'PHP', 'Ruby'].map((x) => `<span>${x}</span>`).join('')}</div>` : ''}`;
     } },
     { len: 5.0, flow: [2], caption: 'The agent fixes the code. The check passes.', draw: (t) => `
     <div class="card" ${show(t, 0)}>

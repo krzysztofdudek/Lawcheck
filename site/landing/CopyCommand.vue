@@ -17,5 +17,10 @@ async function write(): Promise<void> {
   <div class="cmd">
     <code :class="{ wrap }" tabindex="0">{{ command }}</code>
     <button type="button" @click="write">{{ done ? copied : copy }}</button>
+    <span class="sr" role="status" aria-live="polite">{{ done ? copied : '' }}</span>
   </div>
 </template>
+
+<style scoped>
+.sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+</style>

@@ -191,12 +191,12 @@ function heroOutput(): string[] {
   return [...shown];
 }
 
-test('test 1510: every finding the hero shows is a line that lawcheck check --base main prints on the sample site/landing/hero/README.md describes, that README lists the same findings, and the line of the passing pull request is one docs/ci.md shows', async () => {
+test('test 1510: every finding the hero shows is a line that lawcheck check --base main prints on the sample site/landing/hero/README.md describes, that README lists the same findings, the fix the hero shows passes with the line of the passing pull request, and docs/ci.md shows that line', async () => {
   const shown = heroOutput();
   const findings = shown.filter((line) => /^\S+:\d+  error\[[\w-]+\]  /.test(line));
   const passes = shown.filter((line) => line.startsWith('lawcheck: PASS'));
   assert.equal(findings.length + passes.length, shown.length, `the hero shows only findings and passing lines as output: ${shown.join(' | ')}`);
-  assert.ok(findings.length >= 3, `the hero shows its three findings: ${shown.join(' | ')}`);
+  assert.equal(findings.length, 2, `the hero shows its two findings: ${shown.join(' | ')}`);
   const fragments = new Fragments(ROOT);
   assert.deepEqual(findings.toSorted(), fragments.code('site/landing/hero/README.md', 'Output of Lawcheck', 'src/core/').code.split('\n').toSorted(), 'site/landing/hero/README.md lists each finding the hero shows');
   assert.deepEqual(passes.toSorted(), ['lawcheck: PASS', 'lawcheck: PASS  3 changed files (against origin/main)']);
@@ -218,13 +218,20 @@ test('test 1510: every finding the hero shows is a line that lawcheck check --ba
       '.lawcheck/rules/no-clock.mjs': `${fragments.code('README.md', 'A law, a rule and a finding', 'export function check').code}\n`,
     });
     write(repo, 'src/core/loyalty.ts', ['import { formatMoney } from "../api/format.ts";', '', 'export function loyaltyPrice(cents: number): string {', '  return formatMoney(Math.round(cents * 0.95));', '}', '', 'export function isBirthday(day: number): boolean {', '  const rate = 1;', '  const today = new Date();', '  return today.getDate() === day * rate;', '}', ''].join('\n'));
-    write(repo, 'src/api/money.py', 'def format_money(cents):\n    return f"${cents / 100:.2f}"\n');
-    write(repo, 'src/core/pricing.py', 'from src.api.money import format_money\n\n\ndef price(cents):\n    return format_money(cents)\n');
     git(repo, 'add', '-A');
     const run = await lawcheck(repo, ['check', '--base', 'main']);
     assert.equal(run.code, 1, run.stdout);
     const printed = run.stdout.split('\n');
     for (const line of findings) assert.ok(printed.includes(line), `lawcheck check --base main prints ${line}, and it printed:\n${run.stdout}`);
+
+    const format = readFileSync(join(repo, 'src/api/format.ts'), 'utf8');
+    write(repo, 'src/core/money.ts', format);
+    write(repo, 'src/api/format.ts', 'export { formatMoney } from "../core/money.ts";\n');
+    write(repo, 'src/core/loyalty.ts', ['import { formatMoney } from "./money.ts";', '', 'export function loyaltyPrice(cents: number): string {', '  return formatMoney(Math.round(cents * 0.95));', '}', '', 'export function isBirthday(day: number, now: Date): boolean {', '  const rate = 1;', '  const today = now;', '  return today.getDate() === day * rate;', '}', ''].join('\n'));
+    git(repo, 'add', '-A');
+    const fixed = await lawcheck(repo, ['check', '--base', 'main']);
+    assert.equal(fixed.code, 0, fixed.stdout);
+    assert.ok(fixed.stdout.split('\n').includes('lawcheck: PASS  3 changed files (against main)'), `the fix the hero shows passes on the same three files as the pull request, and lawcheck check --base main printed:\n${fixed.stdout}`);
   });
 });
 

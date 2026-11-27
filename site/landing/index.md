@@ -46,7 +46,7 @@ ci:
   note: "It judges the files a branch changes, so people see findings only about what they change. Verdicts of the rules in prose are committed in `.lawcheck/verdicts`, so the job calls no model, unless you set it up to review. {link}."
   link: { text: The whole job, page: ci }
   check: lawcheck
-  output: ["lawcheck: FAIL  1 error in 2 changed files (against origin/main)", "src/core/discount.ts:1  error[forbidden-use]  core may not use api (src/api/orders.ts)"]
+  output: ["lawcheck: FAIL  1 error in 2 changed files (against origin/main)", "src/core/discount.ts:1  error[forbidden-use]  core may not use api (src/api/orders.ts); its may_use is [core]"]
 holds:
   kicker: One law holds
   heading: Uses, rules, debt and waivers.

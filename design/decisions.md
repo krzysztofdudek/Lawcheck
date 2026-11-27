@@ -703,3 +703,9 @@ With a recording (`LAWCHECK_RECORD`), each marked test's outcome joins the event
 Why: this is the owner's decision (the owner's ruling drugi-przebieg-rozstrzyga), and his row of the threshold kind in tests/weakenings.md approves this change of what a budget means. On the macOS runner of the Nightly, test 1410 took 21.0, 21.2 and 23.4 seconds against its budget of 20 seconds, and every assertion of it passed. A budget missed under load turned the release gate red with no fault in the product. A test that really got slower misses its budget again when it runs alone, so the second run tells the two apart.
 
 Not taken: a budget for test 1410 set from its measured macOS times. It fixes one test, and the next test that misses its budget under load turns the gate red again. Not taken either: judging a late test from its failure. Node then hides the other failures of its file, and a green second run turned them green.
+
+## Decision (number at merge). The README, the landing page and the front page of the docs do not name Cursor
+
+This replaces the part of decision 204 that says the README and the landing say what was checked for Cursor and what was not. The README, the landing page, the front page of the docs and the GitHub description name no Cursor at all. `docs/cursor.md` stays, with the hook's support for Cursor and the list of what no one checked, and the CHANGELOG keeps its entry. The rest of decision 204 holds.
+
+Why: Krzysztof, 2026-11-27 (translated from Polish), on the drafts of the README and the landing page: "You do not mention that we did not test Cursor." No session of Cursor has run the plugin, so the pages people read first claim nothing for it, and a sentence that Cursor was not tested reads as a claim about it.
