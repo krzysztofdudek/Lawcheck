@@ -138,7 +138,7 @@ function blockAfter(page, heading, lang, root = ROOT) {
 }
 
 function quickStart(folder, take, reasons) {
-  for (const command of ['npm install --global lawcheck', 'lawcheck init']) {
+  for (const command of ['npm install --global lawcheck@alpha', 'lawcheck init']) {
     if (exitOf(take.commands, command) !== 0) reasons.push(`${command} exits ${exitOf(take.commands, command)}`);
   }
   const files = [
