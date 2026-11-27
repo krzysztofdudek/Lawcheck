@@ -21,7 +21,7 @@ holds: { page: adopt-in-an-existing-repository }
 tutorial:
   heading: The tutorial
   chapter: "Chapter {n}"
-  length: "{seconds} s, narrated, with subtitles"
+  length: "{seconds} s, with subtitles"
   play: Play
   read: Read the page
   transcript: Transcript
