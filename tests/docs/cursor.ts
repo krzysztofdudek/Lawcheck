@@ -22,8 +22,6 @@ export async function scenario(page: Page): Promise<void> {
   const text = read('docs/cursor.md');
   for (const sentence of ['Cursor loads a plugin only when `enabledPlugins` holds `true` for it', 'No session of Cursor ran the plugin.', 'The hooks of the plugin that run in Cursor', 'Windows.', 'The Cursor editor.']) assert.ok(text.includes(sentence), sentence);
 
-  for (const page of ['README.md', 'docs/index.md']) assert.ok(!read(page).includes('Cursor'), `${page} leaves Cursor to docs/cursor.md`);
+  for (const page of ['README.md', 'docs/index.md', 'site/landing/index.md', 'site/landing/facts.ts', 'site/landing/Landing.vue', 'site/landing/hero/hero.mjs']) assert.ok(!read(page).includes('Cursor'), `${page} leaves Cursor to docs/cursor.md`);
   assert.ok(read('CHANGELOG.md').includes('No session of Cursor has run the plugin; `lawcheck docs cursor` says what was checked and what was not.'));
-  assert.ok(!read('site/landing/facts.ts').includes("'In Cursor, the plugin for Claude Code'"), 'the landing page says it once, on the card of docs/index.md');
-  assert.ok(!read('site/landing/Landing.vue').includes('data.tryIt.cursor'));
 }
