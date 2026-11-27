@@ -715,3 +715,9 @@ Why: Krzysztof, 2026-11-27 (translated from Polish), on the drafts of the README
 The release workflow of 0.1.0 has no job that asks for a green whole Nightly on the tagged commit, and the tag of 0.1.0 is laid without one. For 0.1.0 alone, this sets aside decision 233 and the part of decision 91 that holds a release to a green Nightly. Once 0.1.0 is published, the job returns as it was, with its tests, and every later release needs its green whole Nightly again.
 
 Why: Krzysztof, 2026-11-27 (translated from Polish): "We do a release without alpha. 0.1.0 without Nightly. We just bump the version AS-IS." The code of 0.1.0 is the code of 0.1.0-alpha.6, whose tagged commit had its green whole Nightly. 0.1.0 changes the version, the install lines that named `@alpha`, the pages people read and the setup skill, which the agent may now start itself. His row of the kind `ci-changed` in tests/weakenings.md approves the change of release.yml.
+
+## Decision (number at merge). No film on the public pages for now
+
+The README, the landing page and the docs site show no film. `film/published.json` lists no chapter and no loop, so the landing page has no tutorial section, no page of the docs site carries a chapter, and the site build downloads no file of a release. The text of every page stays. The hero, the animation the landing page draws, stays too. After a release, its GIF of the hero is the one film the README may show at its top, once it is attached to that release and `node film/publish.mjs` lists it. The tools of `film/` and their tests stay in the repository, so the films can come back.
+
+Why: Krzysztof, 2026-11-27 (translated from Polish): "I think I don't want films." Picking the option to remove them everywhere: "2 for now, we will think the topic over another time." The option label is not his wording.

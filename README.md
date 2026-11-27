@@ -1,7 +1,5 @@
 # Lawcheck
 
-[![Claude Code imports the HTTP handlers into the business logic, and the tests pass. Lawcheck names the line.](https://github.com/krzysztofdudek/Lawcheck/releases/download/v0.1.0-alpha.6/loop.gif)](https://lawcheck.dev)
-
 Write your architecture rules once, and stop reading your agent's code to enforce them. Lawcheck holds your coding agent to your rules while it writes, before it ends its turn, and in CI. The structure stays as you agreed, so what is left for you to check is behaviour, and your tests do that. I work this way: the less of the agent's code I read, the sooner I deliver to my clients. One law reads imports and other uses in twelve languages. It is free and open source under the [MIT license](LICENSE), and it runs on your machine. It calls an AI model only for a rule written in prose, and only when you run `lawcheck check --review`, through a provider you pick and pay for yourself, or a local Ollama.
 
 ## Why not `CLAUDE.md` or your linter

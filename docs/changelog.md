@@ -13,6 +13,7 @@ Lawcheck follows [Semantic Versioning](https://semver.org/).
 - Install with `npm install --global lawcheck` or `npm install --save-dev lawcheck`, with no `@alpha`. A line that still names `lawcheck@alpha` installs 0.1.0 as well.
 - The agent can start the setup skill itself when you ask it for a law. In alpha.6 only `/lawcheck:setup`, or `$lawcheck:setup` in Codex, started it, and the agent told you to type the command. In a folder with no law, the plugin still tells the agent to write no law you did not ask for.
 - When the plugin finds no `lawcheck`, its message says to install it with `npm i -g lawcheck`.
+- The landing page and the tutorial pages of docs.lawcheck.dev show no film. The text of each page stays.
 
 ## [0.1.0-alpha.6] - 2026-11-26
 
