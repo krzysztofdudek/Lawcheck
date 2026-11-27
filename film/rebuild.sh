@@ -6,6 +6,7 @@ mkdir -p /work
 tar -C /src --exclude=./node_modules --exclude=./dist --exclude=./film/dist --exclude=./.git -cf - . | tar -C /work -xf -
 cd /work
 npm ci --no-audit --no-fund
+npm --prefix site ci --no-audit --no-fund
 npm run build
 HYPERFRAMES_BROWSER_PATH=/usr/bin/chromium node film/render.mjs --out /out --voice /voice
 chown -R "$(stat -c %u:%g /out)" /out
