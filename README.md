@@ -1,7 +1,5 @@
 # Lawcheck
 
-[![Claude Code imports the HTTP handlers into the business logic, and the tests pass. Lawcheck names the line.](https://github.com/krzysztofdudek/Lawcheck/releases/download/v0.1.0-alpha.6/loop.gif)](https://lawcheck.dev)
-
 Write your architecture rules once, and stop reading your agent's code to enforce them. Lawcheck holds your coding agent to your rules while it writes, before it ends its turn, and in CI. The structure stays as you agreed, so what is left for you to check is behaviour, and your tests do that. I work this way: the less of the agent's code I read, the sooner I deliver to my clients. One law reads imports and other uses in twelve languages. It is free and open source under the [MIT license](LICENSE), and it runs on your machine. It calls an AI model only for a rule written in prose, and only when you run `lawcheck check --review`. You pick the provider and pay for it yourself, or run a local Ollama.
 
 ## Why not `CLAUDE.md` or your linter
@@ -70,9 +68,9 @@ Without a rule that is checked, an agent breaks it quietly. In a small pilot, 8 
 
 ## Try it
 
-Lawcheck is an alpha. It needs Node 24 or later and git 2.34 or later.
+Lawcheck needs Node 24 or later and git 2.34 or later.
 
-1. Install the tool: `npm install --global lawcheck@alpha`.
+1. Install the tool: `npm install --global lawcheck`.
 2. Add the plugin to your agent, then start a new agent session: `claude plugin marketplace add krzysztofdudek/Lawcheck` and `claude plugin install lawcheck@lawcheck-marketplace`.
 3. Create the law at the root of your repository: `lawcheck init` creates an empty `.lawcheck/law.yaml`. Then type `/lawcheck:setup` in Claude Code (`$lawcheck:setup` in Codex), and the agent describes your folders as types. It starts from the rules in your `CLAUDE.md`, `AGENTS.md` and linter config, asks you before it forbids a use the code already makes, and changes nothing outside `.lawcheck/`. To practise first on a new repository with no agent, `lawcheck docs quick-start` walks you to a finding by hand.
 4. Check: `lawcheck check --base main`. It judges the files your branch changed, and `lawcheck check --full` lists older breaches as debt that does not fail the run. If your code already keeps the law, the check passes; to see a finding, import a file the law forbids, such as an HTTP handler into the business logic. None of this needs a model or a key.

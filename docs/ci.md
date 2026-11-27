@@ -13,7 +13,7 @@ CI judges only the change on purpose, so a pull request shows findings only abou
 Keep Lawcheck as a dev dependency of the project. Then every job and every hook runs the same version:
 
 ```text
-$ npm install --save-dev lawcheck@alpha
+$ npm install --save-dev lawcheck
 ```
 
 Commit `package.json` and any lockfile. The jobs and hooks below start Lawcheck with `npx --no-install lawcheck`. It starts the copy that `npm install` put in `node_modules` and downloads nothing.

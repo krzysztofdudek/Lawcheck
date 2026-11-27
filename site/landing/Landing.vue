@@ -154,7 +154,7 @@ onBeforeUnmount(() => watcher?.disconnect());
             </div>
           </li>
         </ol>
-        <p class="small"><span v-html="data.tryIt.alpha" /> <span v-html="data.tryIt.hooks" /></p>
+        <p class="small"><span v-html="data.tryIt.needs" /> <span v-html="data.tryIt.hooks" /></p>
       </section>
 
       <section id="ci" aria-labelledby="ci-heading">

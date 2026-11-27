@@ -5,7 +5,7 @@ Lawcheck checks code against your written architecture and names the file and li
 Install Lawcheck from npm. It needs Node 24 or later and git 2.34 or later:
 
 ```text
-$ npm install --global lawcheck@alpha
+$ npm install --global lawcheck
 ```
 
 `lawcheck --version` then prints the version you installed. To install Lawcheck in one project, or with pnpm, Yarn or Bun, read [Install](install.md).

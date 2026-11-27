@@ -44,7 +44,7 @@ It runs `npm test`, the suite guard of the base, and prints the pack a reviewer 
 
 ## Before a release
 
-The Nightly does not run by itself. Before a release it runs by hand, whole, on the tagged commit (`gh workflow run nightly.yml --ref <branch at that commit>`), and that run must be green; the release workflow checks that it is. To prove one fix on a branch, run only the jobs and tests that show it ([tests/README.md](tests/README.md#the-nightly-by-hand)); the release workflow does not count such a run. CI runs `npm run real` and `claude plugin validate` on every push to `main` and every pull request. These steps run by hand before the tag ([decision 58](design/decisions.md#58-acceptance-tests-that-run-outside-npm-test)):
+The Nightly does not run by itself. Before a release it runs by hand, whole, on the tagged commit (`gh workflow run nightly.yml --ref <branch at that commit>`), and that run must be green; the release workflow checks that it is, except for 0.1.0, which is released without it on the owner's word ([design/decisions.md](design/decisions.md), "0.1.0 is released without a Nightly, and the gate returns after it"). To prove one fix on a branch, run only the jobs and tests that show it ([tests/README.md](tests/README.md#the-nightly-by-hand)); the release workflow does not count such a run. CI runs `npm run real` and `claude plugin validate` on every push to `main` and every pull request. These steps run by hand before the tag ([decision 58](design/decisions.md#58-acceptance-tests-that-run-outside-npm-test)):
 
 - a person reads the README and the plugin's files for their wording and for names of other tools;
 - when `node film/check.mjs` failed on a change since the last release, the loop is rendered again with `node film/render.mjs` ([film/README.md](film/README.md)).
@@ -55,4 +55,4 @@ The tests with a live model, `npm run stability` and `node tests/live/run.ts`, r
 
 The release workflow installs the new version from npm on Linux, macOS and Windows and takes the first steps of the quick start with it. That job runs after the publish, so a red one stops nothing: the release then needs a fix in a new version.
 
-Once the release workflow has made the GitHub release, I attach the loop and the chapters of the film to it. Then I run `node film/publish.mjs --release <tag>`, which lists them in `film/published.json` and puts the loop of that release at the top of the README, and I deploy the landing page and the docs again ([film/README.md](film/README.md#where-the-chapters-live)).
+Once the release workflow has made the GitHub release, I attach the hero to it: `hero.gif` and the `chapters.json` that `node film/render.mjs --out <folder> --only hero` writes. Then I run `node film/publish.mjs --release <tag>`, which lists it in `film/published.json` and puts the hero of that release at the top of the README, and I deploy the landing page and the docs again ([film/README.md](film/README.md#where-the-chapters-live)).

@@ -275,7 +275,7 @@
               "lines": [
                 {
                   "prompt": true,
-                  "text": "npm install --global lawcheck@alpha",
+                  "text": "npm install --global lawcheck",
                   "from": {
                     "repo": "README.md"
                   }
@@ -313,7 +313,7 @@
               ],
               "ties": [
                 {
-                  "text": "npm install --global lawcheck@alpha",
+                  "text": "npm install --global lawcheck",
                   "from": {
                     "repo": "docs/install.md"
                   }
@@ -335,7 +335,7 @@
                   "lines": [
                     {
                       "prompt": true,
-                      "text": "npm install --global lawcheck@alpha",
+                      "text": "npm install --global lawcheck",
                       "from": {
                         "take": "qs03",
                         "file": "terminal.jsonl"

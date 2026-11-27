@@ -4,7 +4,7 @@
 
 Report it privately: on the repository's Security tab, choose "Report a vulnerability". Do not open a public issue for it. Say which version you ran (`lawcheck --version`), the command, and what it did. I answer in the private report.
 
-Lawcheck is an alpha. Only the latest published version gets fixes.
+Only the latest published version gets fixes.
 
 ## What is in scope
 

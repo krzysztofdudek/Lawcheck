@@ -19,7 +19,7 @@ import type { HookRun } from './plugin-bench.ts';
 
 const BROKEN_LAW = LAW.replace('status: advisory', 'statuss: advisory');
 
-const NO_ROOT = 'The Lawcheck plugin is on, and this directory has no law (.lawcheck/law.yaml here or above).\nWrite no law on your own. The user starts one by typing /lawcheck:setup; when the user asks for a law, tell them to type it.';
+const NO_ROOT = 'The Lawcheck plugin is on, and this directory has no law (.lawcheck/law.yaml here or above).\nWrite no law the user did not ask for. When the user asks for a law, or for Lawcheck to be set up, start the plugin\'s skill /lawcheck:setup.';
 const D_OUTPUT = [
   'lawcheck: FAIL  1 error, 1 warning in 1 named file, 1 waiver',
   '',
@@ -132,12 +132,12 @@ test('test 156: prime that does not run', async () => {
   await withBench(async (bench, dir) => {
     const s = makeSample(dir);
     bench.remove('lawcheck');
-    json(await new Session(bench, s).start(), notRun('lawcheck', 'lawcheck was not found', 'npm i -g lawcheck@alpha'), 'no lawcheck');
+    json(await new Session(bench, s).start(), notRun('lawcheck', 'lawcheck was not found', 'npm i -g lawcheck'), 'no lawcheck');
     write(s, '.lawcheck/config.yaml', 'runner: pnpm\n');
     json(await new Session(bench, s).start(), notRun('pnpm exec lawcheck', 'pnpm was not found', 'pnpm install'), 'no pnpm');
     rmSync(join(s, '.lawcheck/config.yaml'));
     bench.script('lawcheck', ["process.stderr.write('boom\\n');", 'process.exitCode = 1;']);
-    json(await new Session(bench, s).start(), notRun('lawcheck', 'boom', 'npm i -g lawcheck@alpha'), 'boom');
+    json(await new Session(bench, s).start(), notRun('lawcheck', 'boom', 'npm i -g lawcheck'), 'boom');
   });
 });
 
@@ -147,7 +147,7 @@ test('S6-9: a reason that ends with a full stop gets no second one', async () =>
     bench.script('lawcheck', ["process.stderr.write('error Command \"lawcheck\" not found.\\n');", 'process.exitCode = 1;']);
     json(
       await new Session(bench, s).start(),
-      started('This repository has a Lawcheck law (.lawcheck/law.yaml), and lawcheck prime did not run: error Command "lawcheck" not found.\nInstall it with npm i -g lawcheck@alpha, then start a new session. Until then, read .lawcheck/law.yaml for the law.'),
+      started('This repository has a Lawcheck law (.lawcheck/law.yaml), and lawcheck prime did not run: error Command "lawcheck" not found.\nInstall it with npm i -g lawcheck, then start a new session. Until then, read .lawcheck/law.yaml for the law.'),
     );
     const session = new Session(bench, s, 's2');
     await session.prompt();
@@ -1175,7 +1175,7 @@ test('test 905: every part and step of the setup page that a file of the setup s
   const headings = headingsOf(readFileSync(join(ROOT, 'docs', 'agent-setup.md'), 'utf8'));
   const files = skillFiles();
   assert.ok(files.some((file) => file.endsWith(`${sep}SKILL.md`)));
-  assert.match(readFileSync(join(SKILL, 'SKILL.md'), 'utf8'), /^---\nname: setup\ndescription: .+\ndisable-model-invocation: true\n---\n/);
+  assert.match(readFileSync(join(SKILL, 'SKILL.md'), 'utf8'), /^---\nname: setup\ndescription: .+\n---\n/);
   let named = 0;
   for (const file of files) {
     const text = readFileSync(file, 'utf8');
@@ -1256,7 +1256,7 @@ test('test 908: the setup skill has advice and a target, each with its reference
   // A folder comes in the order of its file system, which on Windows puts references before SKILL.md, so the names are sorted first.
   assert.deepEqual(skillFiles().map((file) => relative(SKILL, file).split(sep).join('/')).sort(), ['SKILL.md', 'references/advice.md', 'references/target.md']);
   const skill = SKILL_TEXT('SKILL.md');
-  assert.match(skill, /^---\nname: setup\ndescription: .+\ndisable-model-invocation: true\n---\n/);
+  assert.match(skill, /^---\nname: setup\ndescription: .+\n---\n/);
   assert.deepEqual(namedParts(skill).links, ['references/advice.md', 'references/target.md']);
   for (const sentence of [
     'Ask no question about which row.',
@@ -1394,7 +1394,7 @@ test('test 920: the files of the plugin for Codex', () => {
   assert.ok(userConfig !== undefined && description !== undefined);
   assert.deepEqual(codex, { ...shared, version: manifest.version, description: description.replace('with Write, Edit or NotebookEdit', 'with apply_patch').replace('/lawcheck:setup', '$lawcheck:setup'), hooks: './hooks/codex.json' });
   assert.match(codex.description, /\$lawcheck:setup/);
-  assert.equal(readFileSync(join(SKILL, 'agents', 'openai.yaml'), 'utf8'), 'policy:\n  allow_implicit_invocation: false\n');
+  assert.equal(readFileSync(join(SKILL, 'agents', 'openai.yaml'), 'utf8'), 'policy:\n  allow_implicit_invocation: true\n');
   const claudeHooks = JSON.parse(readFileSync(join(PLUGIN, 'hooks', 'hooks.json'), 'utf8')).hooks;
   const codexHooks = JSON.parse(readFileSync(join(PLUGIN, 'hooks', 'codex.json'), 'utf8')).hooks;
   assert.deepEqual(Object.keys(codexHooks), Object.keys(claudeHooks));
@@ -1683,21 +1683,20 @@ test('test 1013: in Copilot, the message for a folder with no law names /lawchec
   });
 });
 
-const COPILOT_SKILL_FLAG = /^---\nname: setup\ndescription: .+\ndisable-model-invocation: true\n---\n/;
+const SKILL_FRONTMATTER = /^---\nname: setup\ndescription: .+\n---\n/;
 
-test('test 1014: the setup skill of the plugin for Copilot CLI never starts on its own: it sits in the skills folder Copilot reads, with the flag Copilot honors', () => {
+test('test 1014: the setup skill of the plugin for Copilot CLI sits in the skills folder Copilot reads, with no flag that keeps the agent from starting it', () => {
   const copilot = JSON.parse(readFileSync(join(PLUGIN, '.plugin', 'plugin.json'), 'utf8'));
   assert.equal('skills' in copilot, false, 'the manifest moves no skill out of skills/');
-  assert.match(SKILL_TEXT('SKILL.md'), COPILOT_SKILL_FLAG);
+  assert.match(SKILL_TEXT('SKILL.md'), SKILL_FRONTMATTER);
   assert.match(copilot.description, /Its skill, \/lawcheck:setup,/);
   assert.deepEqual(readdirSync(join(PLUGIN, 'skills')), ['setup']);
 });
 
-test('test 1014: control, a skill file without the flag, or with it outside the frontmatter, is caught', () => {
+test('test 1014: control, a skill file with the flag disable-model-invocation in its frontmatter is caught', () => {
   const text = SKILL_TEXT('SKILL.md');
-  assert.doesNotMatch(text.replace('disable-model-invocation: true\n', ''), COPILOT_SKILL_FLAG);
-  assert.doesNotMatch(text.replace('disable-model-invocation: true\n---\n', '---\ndisable-model-invocation: true\n'), COPILOT_SKILL_FLAG);
-  assert.doesNotMatch(text.replace('disable-model-invocation: true', 'disable-model-invocation: false'), COPILOT_SKILL_FLAG);
+  assert.doesNotMatch(text.replace(/^(---\nname: setup\ndescription: .+\n)/, '$1disable-model-invocation: true\n'), SKILL_FRONTMATTER);
+  assert.doesNotMatch(text.replace(/^(---\nname: setup\n)/, '$1disable-model-invocation: true\n'), SKILL_FRONTMATTER);
 });
 
 const relayed = (text: string) => ({ decision: 'block', reason: `Lawcheck: before you finish, tell the user this message, word for word, then finish:\n\n${text}` });

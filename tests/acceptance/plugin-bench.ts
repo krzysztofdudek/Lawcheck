@@ -379,7 +379,7 @@ export async function startAndPromptScenario(deadlines: Deadlines | null): Promi
       hangingLawcheck(bench, pids, false);
       const started = await new Session(bench, s, 's1', {}, options).start();
       within(started, start);
-      json(started, { hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: `This repository has a Lawcheck law (.lawcheck/law.yaml), and lawcheck prime did not run: it did not finish within ${start} seconds.\nInstall it with npm i -g lawcheck@alpha, then start a new session. Until then, read .lawcheck/law.yaml for the law.` } });
+      json(started, { hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: `This repository has a Lawcheck law (.lawcheck/law.yaml), and lawcheck prime did not run: it did not finish within ${start} seconds.\nInstall it with npm i -g lawcheck, then start a new session. Until then, read .lawcheck/law.yaml for the law.` } });
       await gone();
     }],
     ['prompt', async (bench, s, dir) => {

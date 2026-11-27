@@ -709,3 +709,15 @@ Not taken: a budget for test 1410 set from its measured macOS times. It fixes on
 This replaces the part of decision 204 that says the README and the landing say what was checked for Cursor and what was not. The README, the landing page, the front page of the docs and the GitHub description name no Cursor at all. `docs/cursor.md` stays, with the hook's support for Cursor and the list of what no one checked, and the CHANGELOG keeps its entry. The rest of decision 204 holds.
 
 Why: Krzysztof, 2026-11-27 (translated from Polish), on the drafts of the README and the landing page: "You do not mention that we did not test Cursor." No session of Cursor has run the plugin, so the pages people read first claim nothing for it, and a sentence that Cursor was not tested reads as a claim about it.
+
+## 236. 0.1.0 is released without a Nightly, and the gate returns after it
+
+The release workflow of 0.1.0 has no job that asks for a green whole Nightly on the tagged commit, and the tag of 0.1.0 is laid without one. For 0.1.0 alone, this sets aside decision 233 and the part of decision 91 that holds a release to a green Nightly. Once 0.1.0 is published, the job returns as it was, with its tests, and every later release needs its green whole Nightly again.
+
+Why: Krzysztof, 2026-11-27 (translated from Polish): "We do a release without alpha. 0.1.0 without Nightly. We just bump the version AS-IS." The code of 0.1.0 is the code of 0.1.0-alpha.6, whose tagged commit had its green whole Nightly. 0.1.0 changes the version, the install lines that named `@alpha`, the pages people read and the setup skill, which the agent may now start itself. His row of the kind `ci-changed` in tests/weakenings.md approves the change of release.yml.
+
+## 237. No film on the public pages for now
+
+The README, the landing page and the docs site show no film. `film/published.json` lists no chapter and no loop, so the landing page has no tutorial section, no page of the docs site carries a chapter, and the site build downloads no file of a release. The text of every page stays. The hero, the animation the landing page draws, stays too. After a release, its GIF of the hero is the one film the README may show at its top, once it is attached to that release and `node film/publish.mjs` lists it. The tools of `film/` and their tests stay in the repository, so the films can come back.
+
+Why: Krzysztof, 2026-11-27 (translated from Polish): "I think I don't want films." Picking the option to remove them everywhere: "2 for now, we will think the topic over another time." The option label is not his wording.

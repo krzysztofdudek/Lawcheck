@@ -1,6 +1,6 @@
 const ROBOT = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" d="M12 3v3"/><circle cx="12" cy="2.6" r="1.2" fill="currentColor"/><rect x="4.5" y="6.5" width="15" height="11" rx="3.5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="9.3" cy="12" r="1.5" fill="currentColor"/><circle cx="14.7" cy="12" r="1.5" fill="currentColor"/><path d="M8 20.5h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
 
-export const INSTALL = 'npm install --global lawcheck@alpha';
+export const INSTALL = 'npm install --global lawcheck';
 
 const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
 const ease = (x) => 1 - Math.pow(1 - clamp(x), 3);

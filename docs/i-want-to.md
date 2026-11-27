@@ -127,7 +127,7 @@ Each line ends the sentence of the title. Its link opens the step where that pat
 
 ## Upgrade
 
-- [upgrade to a new alpha](upgrade.md#_1-install-the-new-version)
+- [upgrade to a new version](upgrade.md#_1-install-the-new-version)
 - [understand why a law that passed now fails](upgrade.md#a-law-that-passed-now-fails)
 - [see what each version changed](changelog.md)
 

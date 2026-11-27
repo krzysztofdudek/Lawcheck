@@ -173,7 +173,7 @@ export function facts() {
       })),
       law: { label: copy.try.law, commands: copy.try.lawCommands, note: own(copy.try.lawNote) },
       check: { label: copy.try.check, commands: [copy.try.checkCommand], note: own(copy.try.checkNote) },
-      alpha: readme(fragments.paragraph('README.md', 'Try it', 'Lawcheck is an alpha')),
+      needs: readme(fragments.paragraph('README.md', 'Try it', 'Lawcheck needs')),
       hooks: own(copy.try.hooks),
     },
     ci: {

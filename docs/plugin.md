@@ -7,7 +7,7 @@ claude plugin marketplace add krzysztofdudek/Lawcheck
 claude plugin install lawcheck@lawcheck-marketplace
 ```
 
-The plugin does not hold Lawcheck. It starts Lawcheck with the command that the `runner` setting of `.lawcheck/config.yaml` names ([Settings](config.md#runner)). Install Lawcheck where that command finds it. For the default `global`, that install is `npm i -g lawcheck@alpha`.
+The plugin does not hold Lawcheck. It starts Lawcheck with the command that the `runner` setting of `.lawcheck/config.yaml` names ([Settings](config.md#runner)). Install Lawcheck where that command finds it. For the default `global`, that install is `npm i -g lawcheck`.
 
 The plugin runs on Linux, macOS and Windows. It needs `node` and `git` on the `PATH`.
 
@@ -52,14 +52,14 @@ A law can have a [reviewer rule](concepts.md#reviewer-rule) while `.lawcheck/con
 Lawcheck: this repository has a reviewer rule, and .lawcheck/config.yaml sets no reviewer, so a plain lawcheck check and CI fail on every file a reviewer rule judges. Setting reviewer.provider and reviewer.model there is the user's decision; lawcheck docs providers lists the choices.
 ```
 
-Without a law, the agent gets two lines. The first says that the plugin is on and the folder has no law. The second tells the agent to write no law on its own, and to tell the user to type `/lawcheck:setup` when the user asks for one ([The setup skill](#the-setup-skill)).
+Without a law, the agent gets two lines. The first says that the plugin is on and the folder has no law. The second tells the agent to write no law the user did not ask for, and to start the setup skill when the user asks for one ([The setup skill](#the-setup-skill)).
 
 When the `runner` setting holds a value outside the five of [Settings](config.md#runner), the hook tells the agent to read `.lawcheck/law.yaml` and to tell the user that the setting is wrong.
 
 If `prime` does not run, the hook gives the agent three things:
 
 - the reason;
-- the line that installs Lawcheck for the `runner` setting, such as `npm i -g lawcheck@alpha`;
+- the line that installs Lawcheck for the `runner` setting, such as `npm i -g lawcheck`;
 - the advice to read `.lawcheck/law.yaml` until a new session starts.
 
 ## UserPromptSubmit
@@ -142,7 +142,7 @@ A hook that fails inside its own code prints `Lawcheck plugin:` and the cause on
 
 ## The setup skill
 
-The plugin holds one skill, `lawcheck:setup`. The skill is early. The law it writes can forbid correct new code, or leave out a boundary that your project wrote down. Its advice can miss a boundary between your packages. Its target can forbid more than you asked, or miss a problem you named. Read each type, list and rule it writes before you commit `.lawcheck/`. Only you start it, by typing `/lawcheck:setup`. The agent never starts it by itself. When you ask for a law in other words, the agent tells you to type the command. The skill runs `lawcheck docs agent-setup` and follows that page. Its steps therefore match the Lawcheck you installed. The agent asks its questions with the question tool of Claude Code. Its last message names the next step. In a repository that already has a law, `/lawcheck:setup` alone says so and changes nothing.
+The plugin holds one skill, `lawcheck:setup`. The law it writes can forbid correct new code, or leave out a boundary that your project wrote down. Its advice can miss a boundary between your packages. Its target can forbid more than you asked, or miss a problem you named. Read each type, list and rule it writes before you commit `.lawcheck/`. You start it by typing `/lawcheck:setup`, or the agent starts it when you ask for a law in your own words. The skill runs `lawcheck docs agent-setup` and follows that page. Its steps therefore match the Lawcheck you installed. The agent asks its questions with the question tool of Claude Code. Its last message names the next step. In a repository that already has a law, `/lawcheck:setup` alone says so and changes nothing.
 
 Two more parts of the skill run only when you ask for them, in the words you type with the command:
 

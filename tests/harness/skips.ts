@@ -18,7 +18,6 @@ const ESCAPED = 'Windows lets no process read the environment of another, which 
 export const HARNESS = 'tests/harness';
 
 export const PLATFORM_SKIPS: PlatformSkip[] = [
-  { file: 'tests/contract/ci-groups.test.ts', test: 'test 1433: release.yml takes one green whole Nightly on the tagged commit, and refuses a run of chosen parts, a red or unfinished run, a called one and none', part: 'the whole test', platform: 'win32', reason: 'release.yml runs this script only on Linux, and on Windows the name bash may start the bash of WSL' },
   { file: 'tests/acceptance/hostile.test.ts', test: 'R-37: an untracked src/core/a<LF>b.ts holding console.log is in the change and fails the check', part: 'the whole test', platform: 'win32', reason: 'Windows refuses a line break in a file name' },
   { file: 'tests/acceptance/hostile.test.ts', test: 'S1-2: a file whose name holds a line break, a carriage return or an invalid byte is judged, its name escaped', part: 'the whole test', platform: 'win32', reason: 'Windows refuses these characters in a file name' },
   { file: 'tests/acceptance/hostile.test.ts', test: 'S1-2: a name given on the command line in its escaped form selects that file, and a raw backslash selects the same file as its escape', part: 'the whole test', platform: 'win32', reason: 'Windows refuses these characters in a file name' },
