@@ -100,6 +100,22 @@ test('test 741: css() writes every color, font and radius of the tokens, dusk in
   assert.ok(css(tokens, ':root:not(.dark)').includes('\n:root:not(.dark) {\n'));
 });
 
+test('test 741: every tint of the tokens is a color of dusk at a share between 1 and 99 percent, css() writes it as that color with its alpha, and css() writes no other color with an alpha', () => {
+  const tints = (tokens as Tokens & { tints: Record<string, number[]> }).tints;
+  const root = css(tokens).split('\n\n')[0]!;
+  const written: string[] = [];
+  for (const [role, percents] of Object.entries(tints)) {
+    assert.ok(tokens.colors.dusk[role] !== undefined, `${role} is a color of dusk`);
+    for (const percent of percents) {
+      assert.ok(Number.isInteger(percent) && percent >= 1 && percent <= 99, `${role} ${percent}`);
+      const value = `${tokens.colors.dusk[role]}${Math.round((percent * 255) / 100).toString(16).padStart(2, '0')}`;
+      assert.ok(root.includes(`--lc-${role.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)}-${percent}: ${value};`), `${role} ${percent}`);
+      written.push(value.toLowerCase());
+    }
+  }
+  assert.deepEqual((root.match(/#[0-9a-fA-F]{8}\b/g) ?? []).map((hex) => hex.toLowerCase()).sort(), written.sort());
+});
+
 test('test 741: codeTheme() is one dark theme on the code surface, and every color in it is a color of dusk', () => {
   const theme = codeTheme(tokens);
   assert.equal(theme.type, 'dark');
