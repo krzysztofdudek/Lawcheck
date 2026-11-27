@@ -36,7 +36,7 @@ Arm a had no law and no plugin; arm b had the law and the plugin. `accept.mjs` t
 
 ## The chapters
 
-Each chapter of the tutorial is one recording of `record.mjs --chapter <page>` in the repository that `fixture/chapters/<page>/` describes, with Lawcheck packed from the commit that becomes the release and the plugin from this repository's `main`. The recording types the chapter's commands, and Claude Code gets the chapter's one prompt. The first chapter has no prompt: as its page does, it makes a new repository and types the page's files into it. The chapter of `ci` then types the job's command in a second container with no network and no key. The first chapter types `npm install --global lawcheck@alpha` against `registry.mjs`, which serves the packed build under that tag, so that the recording installs the build that becomes the release. `take.json` names the commit.
+Each chapter of the tutorial is one recording of `record.mjs --chapter <page>` in the repository that `fixture/chapters/<page>/` describes, with Lawcheck packed from the commit that becomes the release and the plugin from this repository's `main`. The recording types the chapter's commands, and Claude Code gets the chapter's one prompt. The first chapter has no prompt: as its page does, it makes a new repository and types the page's files into it. The chapter of `ci` then types the job's command in a second container with no network and no key. The first chapter types `npm install --global lawcheck` against `registry.mjs`, which serves the packed build under the tags `latest` and `alpha`, so that the recording installs the build that becomes the release. `take.json` names the commit.
 
 `accept.mjs` takes a chapter's take when:
 

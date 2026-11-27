@@ -19,7 +19,7 @@ import type { HookRun } from './plugin-bench.ts';
 
 const BROKEN_LAW = LAW.replace('status: advisory', 'statuss: advisory');
 
-const NO_ROOT = 'The Lawcheck plugin is on, and this directory has no law (.lawcheck/law.yaml here or above).\nWrite no law the user did not ask for. When the user asks for a law, or for Lawcheck to be set up, start the plugin's skill /lawcheck:setup.';
+const NO_ROOT = 'The Lawcheck plugin is on, and this directory has no law (.lawcheck/law.yaml here or above).\nWrite no law the user did not ask for. When the user asks for a law, or for Lawcheck to be set up, start the plugin\'s skill /lawcheck:setup.';
 const D_OUTPUT = [
   'lawcheck: FAIL  1 error, 1 warning in 1 named file, 1 waiver',
   '',

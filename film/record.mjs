@@ -339,7 +339,7 @@ async function recordChapter(options) {
   const env = environmentOf(home, { ...extra, ...(registry === null ? {} : { npm_config_registry: registry.url }) });
   try {
     if (['global', 'project'].includes(chapter.lawcheck)) must(root, env, 'npm', ['install', '--global', '--no-audit', '--no-fund', options.pack]);
-    const onMain = chapter.lawcheck === 'project' ? (seed) => must(seed, env, 'npm', ['install', '--save-dev', '--no-audit', '--no-fund', 'lawcheck@alpha']) : undefined;
+    const onMain = chapter.lawcheck === 'project' ? (seed) => must(seed, env, 'npm', ['install', '--save-dev', '--no-audit', '--no-fund', 'lawcheck']) : undefined;
     const start = chapter.empty ? join(root, 'start') : null;
     if (start !== null) mkdirSync(start);
     const work = start ?? makeChapter(root, options.chapter, env, { root: dirname(FILM), onMain, takeOf: (page) => options.takes[page] ?? fail(`--take ${page}=<folder> names the take the branch builds on`) }).work;
