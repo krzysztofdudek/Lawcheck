@@ -4,10 +4,10 @@ import { extname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { PHONE_WIDTHS } from './check.mjs';
 
-// 586 px is what a 440 px phone shows with Safari's page zoom at 75 %. Between about 500 and 620 px the length of a chapter's title can decide where its card has room for the buttons.
+// 586 px is what a 440 px phone shows with Safari's page zoom at 75 %.
 const WIDTHS = [...PHONE_WIDTHS, 430, 586];
 
-const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2', '.json': 'application/json', '.txt': 'text/plain', '.xml': 'application/xml' };
+const TYPES = { '.jpg': 'image/jpeg', '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2', '.json': 'application/json', '.txt': 'text/plain', '.xml': 'application/xml' };
 
 export function serve(dir) {
   const server = createServer((request, response) => {
@@ -43,21 +43,13 @@ function inPage() {
     }
     if (style.overflowX !== 'visible' && element.scrollWidth > element.clientWidth + 1) {
       const cue = element.tabIndex >= 0 && style.backgroundImage !== 'none' && style.overflowX !== 'hidden';
-      const law = element.closest('.code') && !element.closest('.terminal');
+      const law = element.closest('.law-lines');
       if (law) out.push(`${describe(element)} hides part of the law: ${element.scrollWidth} px of lines in ${element.clientWidth} px`);
       else if (!cue) out.push(`${describe(element)} hides ${element.scrollWidth - element.clientWidth} px of its content with no way to scroll it that shows`);
     }
   }
-  const blocks = [...document.querySelectorAll('#law .code')].map((block) => block.getBoundingClientRect());
+  const blocks = [...document.querySelectorAll('#law pre')].map((block) => block.getBoundingClientRect());
   for (let a = 0; a < blocks.length; a++) for (let b = a + 1; b < blocks.length; b++) if (blocks[a].top < blocks[b].bottom && blocks[b].top < blocks[a].bottom) out.push('the law and the finding stand side by side');
-  const places = [...document.querySelectorAll('#tutorial .chapter')].map((card) => {
-    const [text, play, read] = ['.chapter-text', '.chapter-play', '.chapter-actions a'].map((selector) => card.querySelector(selector).getBoundingClientRect());
-    const [right, below, linkRight, linkBelow] = [play.left - text.left, play.top - text.bottom, read.left - play.left, read.top - play.top].map(Math.round);
-    return `Play ${right} px right of and ${below} px below the text, the link ${linkRight} px right of and ${linkBelow} px below Play`;
-  });
-  places.forEach((place, at) => {
-    if (place !== places[0]) out.push(`chapter card ${at + 1} places its buttons unlike card 1: ${place}; card 1: ${places[0]}`);
-  });
   return out;
 }
 
@@ -101,5 +93,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
     for (const problem of found) console.log(`  ${problem}`);
     process.exit(1);
   }
-  console.log(`phone: PASS  ${dir} does not scroll sideways, keeps no grid of more than one column, hides no line of the law, and places the buttons of every chapter card alike at ${WIDTHS.join(', ')} px in both color schemes`);
+  console.log(`phone: PASS  ${dir} does not scroll sideways, keeps no grid of more than one column, hides no line of the law, and sets no two panes of the law side by side at ${WIDTHS.join(', ')} px in both color schemes`);
 }

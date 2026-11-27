@@ -33,14 +33,18 @@ const structured = {
 
 const escape = (text: string): string => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-// VitePress renders 404.html with an empty body and fills it in the browser; this page is the built landing page with its main part, its head and its scripts replaced, so it reads the same without JavaScript.
+// VitePress renders 404.html with an empty body and fills it in the browser; this page is the built landing page with its hero cut to its bar and its main part, its head and its scripts replaced, so it reads the same without JavaScript.
 function pageNotFound(index: string): string {
   const cut = (text: string, pattern: RegExp, by: string): string => {
     if (!pattern.test(text)) throw new Error(`site/landing: the built index.html has no ${pattern}, so 404.html cannot be made from it`);
     return text.replace(pattern, by);
   };
   const main = `<main id="main" tabindex="-1"><section class="wrap lost"><h1>${escape(notFound.heading)}</h1><p>${escape(notFound.text)}</p><p class="links"><a class="button" href="${escape(pageUrl(notFound.docs.page))}">${escape(notFound.docs.text)}</a><a href="/">${escape(notFound.home)}</a></p></section></main>`;
-  let html = cut(index, /<main\b[\s\S]*<\/main>/, main);
+  const bar = /<header class="site">[\s\S]*?<\/header>/.exec(index)?.[0];
+  if (bar === undefined) throw new Error('site/landing: the built index.html has no header in its hero, so 404.html cannot be made from it');
+  const still = bar.replace(/<button\b[\s\S]*?<\/button>/g, '');
+  let html = cut(index, /<section class="hero"[\s\S]*?<\/section>/, `<div class="hero bar-only">${still}</div>`);
+  html = cut(html, /<main\b[\s\S]*<\/main>/, main);
   html = cut(html, /<title>[^<]*<\/title>/, `<title>${escape(notFound.heading.replace(/\.$/, ''))}</title>`);
   html = cut(html, /<meta name="description"[^>]*>/, `<meta name="description" content="${escape(notFound.text)}">`);
   html = cut(html, /\s*<link rel="canonical"[\s\S]*?<script type="application\/ld\+json">[\s\S]*?<\/script>/, '');
@@ -53,6 +57,7 @@ export default defineConfig({
   titleTemplate: false,
   description: page.description,
   cleanUrls: true,
+  srcExclude: ['hero/**'],
   appearance: false,
   head: [
     ['link', { rel: 'icon', type: 'image/svg+xml', href: '/icon.svg' }],

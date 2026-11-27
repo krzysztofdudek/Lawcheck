@@ -7,6 +7,7 @@ import { parse } from 'yaml';
 import { ROOT } from '../harness/sets.ts';
 import { ALLOWED_NAMES } from './allowed-names.ts';
 import { heroProblems, phoneProblems, problems, tutorialProblems } from '../../site/landing/check.mjs';
+import { panes } from '../../site/landing/facts.ts';
 import { problems as docsCardProblems } from '../../site/check-docs-card.mjs';
 import { CARD, cardHead, cardProblems, pngProblems } from '../../site/theme/card.mjs';
 import { CATEGORY, FINDING, og } from '../../site/theme/og.mjs';
@@ -14,6 +15,8 @@ import { Fragments, isAhead } from '../../site/landing/fragments.ts';
 
 const ALLOWED = new Set(Object.values(ALLOWED_NAMES).flat());
 const TAKEN = ['governance', 'trust', 'control', 'confidence', 'AI-native', 'guardrails'];
+// Codex's screen /hooks asks the user to trust the hooks of a plugin, so the landing page names that step in Codex's word.
+const NAMED_STEPS = ['trust them in /hooks'];
 const read = (path: string): string => readFileSync(join(ROOT, path), 'utf8');
 const pages = new Set((JSON.parse(read('docs/topics.json')) as Array<{ id: string }>).map((topic) => topic.id));
 
@@ -40,7 +43,8 @@ function copyProblems(text: string): string[] {
       if (!pages.has(value)) out.push(`${key}: the page ${value} is not in docs/topics.json`);
       continue;
     }
-    for (const word of TAKEN) if (new RegExp(`(?<![\\w-])${word}(?![\\w-])`, 'i').test(value)) out.push(`${key}: the word ${word}`);
+    const said = NAMED_STEPS.reduce((text, step) => text.replaceAll(step, ' '), value);
+    for (const word of TAKEN) if (new RegExp(`(?<![\\w-])${word}(?![\\w-])`, 'i').test(said)) out.push(`${key}: the word ${word}`);
     const prose = value.replace(/`([^`]+)`/g, (_, span: string) => {
       const first = span.trim().split(/\s+/)[0]!;
       if (!ALLOWED.has(first)) out.push(`${key}: the name ${first}`);
@@ -55,9 +59,9 @@ test('test 780: the sentences of the landing page in site/landing/index.md hold 
   assert.deepEqual(copyProblems(read('site/landing/index.md')), []);
 });
 
-test('test 780: control, a code block, text below the front matter, a taken word, a name outside the allow-list and a page that docs/topics.json does not name are each caught', () => {
-  const planted = ['---', 'h1: Guardrails for Acme agents', 'link: { text: More, page: pricing }', 'note: run `zork` now', '---', ''].join('\n');
-  assert.deepEqual(copyProblems(planted), ['h1: the word guardrails', 'h1: the name Guardrails', 'h1: the name Acme', 'link.page: the page pricing is not in docs/topics.json', 'note: the name zork']);
+test('test 780: control, a code block, text below the front matter, a taken word, a name outside the allow-list and a page that docs/topics.json does not name are each caught, and Codex\'s step of trusting the hooks in /hooks is no taken word', () => {
+  const planted = ['---', 'h1: Guardrails for Acme agents', 'link: { text: More, page: pricing }', 'note: run `zork` now', 'why: you can trust the plugin, and Codex asks you to trust them in /hooks', '---', ''].join('\n');
+  assert.deepEqual(copyProblems(planted), ['h1: the word guardrails', 'h1: the name Guardrails', 'h1: the name Acme', 'link.page: the page pricing is not in docs/topics.json', 'note: the name zork', 'why: the word trust']);
   assert.deepEqual(copyProblems(['---', 'h1: Lawcheck', '---', '', '```text', 'x', '```', ''].join('\n')), ['a code block', 'text below the front matter, where the landing page does not read it']);
 });
 
@@ -79,8 +83,8 @@ const GOOD: Record<string, string | Buffer> = {
     '<meta property="og:type" content="website"><meta property="og:site_name" content="Lawcheck"><meta property="og:title" content="Lawcheck"><meta property="og:description" content="x"><meta property="og:url" content="https://lawcheck.dev/">',
     cardTags(),
     '<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebSite"},{"@type":"SoftwareApplication","softwareVersion":"1.2.3"}]}</script>',
-    '<h1>Architecture and rule checks for coding agents</h1><a href="/changelog">1.2.3</a>',
-    '<figure id="film" class="film hero-film"><div class="film-frame"><pre><code><span class="line">src/core/discount.ts:1  error[forbidden-use]  core may not use api</span></code></pre></div></figure>',
+    '<section class="hero" aria-label="What Lawcheck does"><button class="ctl" type="button" data-hero="pause">Pause</button><div class="scene" data-hero="scene"></div></section>',
+    '<h1>Lawcheck checks your coding agent\'s edits against the architecture rules you write down.</h1><span class="version">1.2.3</span>',
   ].join('\n'),
   'og.png': png(1200, 630),
   '404.html': '<h1>This address has no page.</h1><a href="/">Lawcheck home</a>',
@@ -120,8 +124,8 @@ const CHAPTERS = [
   { page: 'quick-start', files: { mp4: { name: 'quick-start.mp4' }, vtt: { name: 'quick-start.vtt' }, jpg: { name: 'quick-start.jpg' } } },
   { page: 'ci', files: { mp4: { name: 'ci.mp4' }, vtt: { name: 'ci.vtt' }, jpg: { name: 'ci.jpg' } } },
 ];
-const card = (page: string): string => `<li id="tutorial-${page}" class="chapter"><button type="button" class="button chapter-play">Play</button><a href="https://docs.lawcheck.dev/${page}.html">Read the page</a></li>`;
-const TUTORIAL = `<section id="tutorial" class="wrap tutorial"><ol class="chapters">${CHAPTERS.map((chapter) => card(chapter.page)).join('')}</ol></section>`;
+const card = (page: string): string => `<a id="tutorial-${page}" class="chapter" href="https://docs.lawcheck.dev/${page}.html"><img alt="" loading="lazy" src="/film/${page}.jpg" width="1920" height="1080"><span>Title</span><small>Chapter 1</small></a>`;
+const TUTORIAL = `<section id="tutorial" aria-labelledby="tutorial-heading"><div class="chapters">${CHAPTERS.map((chapter) => card(chapter.page)).join('')}</div></section>`;
 
 function tutorialOf(index: string, chapters: unknown[], present: string[]): string[] {
   const dir = mkdtempSync(join(tmpdir(), 'lawcheck-tutorial-'));
@@ -134,44 +138,43 @@ function tutorialOf(index: string, chapters: unknown[], present: string[]): stri
   }
 }
 
-test('test 1034: the check of the built landing page wants the section #tutorial with one card per listed chapter, in order, each with its files, its link and a Play button, and nothing of a chapter loaded before a click, and wants no such section when no chapter is listed (control)', () => {
+test('test 1034: the check of the built landing page wants the section #tutorial with one card per listed chapter, in order, each linking to its page and showing its still once scrolled to, every file of each chapter served for the docs site, and no video or track of a chapter in the page, and wants no such section when no chapter is listed (control)', () => {
   const files = CHAPTERS.flatMap((chapter) => Object.values(chapter.files).map((file) => file.name));
   assert.deepEqual(tutorialOf(TUTORIAL, CHAPTERS, files), []);
   assert.deepEqual(tutorialOf('<main></main>', [], []), []);
   assert.deepEqual(tutorialOf(TUTORIAL, [], []), ['index.html shows the tutorial, and film/published.json lists no chapter']);
-  assert.deepEqual(tutorialOf('<main></main>', CHAPTERS, files), ['index.html has 0 sections with the id tutorial, not one', 'the tutorial shows the chapters [], and film/published.json lists [quick-start, ci]', 'the card of the chapter quick-start has no link to its page', 'the card of the chapter ci has no link to its page', 'the tutorial has 0 Play buttons, not 2']);
+  assert.deepEqual(tutorialOf('<main></main>', CHAPTERS, files), ['index.html has 0 sections with the id tutorial, not one', 'the tutorial shows the chapters [], and film/published.json lists [quick-start, ci]', 'the card of the chapter quick-start has no link to its page', 'the card of the chapter quick-start does not show /film/quick-start.jpg', 'the card of the chapter ci has no link to its page', 'the card of the chapter ci does not show /film/ci.jpg']);
   assert.deepEqual(tutorialOf(`<section id="tutorial">${card('ci')}${card('quick-start')}</section>`, CHAPTERS, files), ['the tutorial shows the chapters [ci, quick-start], and film/published.json lists [quick-start, ci]']);
-  assert.deepEqual(tutorialOf(TUTORIAL, CHAPTERS, files.filter((name) => name !== 'ci.vtt')), ['film/ci.vtt of the chapter ci is missing']);
-  assert.deepEqual(tutorialOf(TUTORIAL.replace('<a href="https://docs.lawcheck.dev/ci.html">', '<a href="https://docs.lawcheck.dev/index.html">'), CHAPTERS, files), ['the card of the chapter ci has no link to its page']);
-  assert.deepEqual(tutorialOf(TUTORIAL.replace('class="button chapter-play"', 'class="chapter-play"'), CHAPTERS, files), ['the tutorial has 1 Play buttons, not 2']);
-  assert.deepEqual(tutorialOf(`${TUTORIAL}<video poster="/film/ci.jpg"></video>`, CHAPTERS, files), ['index.html loads a video, a track or an image of a chapter before a click']);
+  assert.deepEqual(tutorialOf(TUTORIAL, CHAPTERS, files.filter((name) => name !== 'ci.mp4')), ['film/ci.mp4 of the chapter ci is missing']);
+  assert.deepEqual(tutorialOf(TUTORIAL.replace('href="https://docs.lawcheck.dev/ci.html"', 'href="https://docs.lawcheck.dev/index.html"'), CHAPTERS, files), ['the card of the chapter ci has no link to its page']);
+  assert.deepEqual(tutorialOf(TUTORIAL.replace('src="/film/ci.jpg"', 'src="/film/quick-start.jpg"'), CHAPTERS, files), ['the card of the chapter ci does not show /film/ci.jpg']);
+  assert.deepEqual(tutorialOf(TUTORIAL.replace('<img alt="" loading="lazy" src="/film/ci.jpg"', '<img alt="" src="/film/ci.jpg"'), CHAPTERS, files), ['the still of the chapter ci loads before it is scrolled to']);
+  assert.deepEqual(tutorialOf(`${TUTORIAL}<video><source src="/film/ci.mp4" type="video/mp4"></video>`, CHAPTERS, files), ['index.html loads a video or a track of a chapter']);
 });
 
-const LOOP = { seconds: 28.9, files: { mp4: { name: 'loop.mp4' }, webm: { name: 'loop.webm' }, gif: { name: 'loop.gif' } } };
-const STILL = '<figure id="film" class="film hero-film"><div class="film-frame"><span class="line mark">src/core/discount.ts:1  error[forbidden-use]  core may not use api</span></div></figure>';
-const PLAYER = '<figure id="film" class="film hero-film"><video class="film-loop" aria-label="Claude Code imports the HTTP handlers into the business logic." autoplay muted loop playsinline><source src="/film/loop.webm" type="video/webm"><source src="/film/loop.mp4" type="video/mp4"></video></figure>';
+const HERO = '<section class="hero" aria-label="What Lawcheck does"><header class="site"><button class="ctl" type="button" data-hero="pause" aria-label="Pause the animation">❚❚</button></header><div class="stage"><div class="scene" data-hero="scene"></div></div></section>';
 
-function heroOf(index: string, loop: unknown, present: string[]): string[] {
-  const dir = mkdtempSync(join(tmpdir(), 'lawcheck-hero-'));
-  try {
-    mkdirSync(join(dir, 'film'));
-    for (const name of present) writeFileSync(join(dir, 'film', name), 'x');
-    return heroProblems(index, dir, loop);
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
-}
+test('test 1350: the check of the built landing page wants the hero to be the animation the page draws, with its scene and a button that pauses it, and no font from Google in the page or its stylesheets (control)', () => {
+  assert.deepEqual(heroProblems(HERO, ['body{font-family:Inter}']), []);
+  assert.deepEqual(heroProblems('<main></main>', []), ['index.html has no section with the class hero']);
+  assert.deepEqual(heroProblems(HERO.replace(' data-hero="scene"', ''), []), ['the hero has no scene']);
+  assert.deepEqual(heroProblems(HERO.replace(/<button[^>]*>❚❚<\/button>/, ''), []), ['the hero has no button that pauses it']);
+  assert.deepEqual(heroProblems(HERO.replace('<div class="stage">', '<iframe src="hero.html"></iframe><div class="stage">'), []), ['the hero plays a video or a frame, not the animation']);
+  assert.deepEqual(heroProblems(`<link href="https://fonts.googleapis.com/css2?family=Inter" rel="stylesheet">${HERO}`, []), ['the page loads a font from Google']);
+  assert.deepEqual(heroProblems(HERO, ["@import url('https://fonts.googleapis.com/css2?family=Inter');", "src:url(https://fonts.gstatic.com/x.woff2)"]), ['the page loads a font from Google']);
+});
 
-test('test 1350: the check of the built landing page wants the hero to play the loop film/published.json lists, from files the build downloaded and with a label, and to show the refusal error[forbidden-use] when no loop is listed (control)', () => {
-  assert.deepEqual(heroOf(STILL, null, []), []);
-  assert.deepEqual(heroOf(PLAYER, LOOP, ['loop.webm', 'loop.mp4']), []);
-  assert.deepEqual(heroOf('<main></main>', null, []), ['index.html has no figure with the id film in its hero']);
-  assert.deepEqual(heroOf(STILL.replace('error[forbidden-use]', 'may_use: [core]'), null, []), ['the still of the hero does not show error[forbidden-use]']);
-  assert.deepEqual(heroOf(PLAYER, null, []), ['the hero plays a video, and film/published.json lists no loop', 'the still of the hero does not show error[forbidden-use]']);
-  assert.deepEqual(heroOf(STILL, LOOP, ['loop.webm', 'loop.mp4']), ['the hero has no source /film/loop.webm', 'the hero has no source /film/loop.mp4', 'the video of the hero has no label']);
-  assert.deepEqual(heroOf(PLAYER, LOOP, ['loop.webm']), ['film/loop.mp4 of the loop is missing']);
-  assert.deepEqual(heroOf(PLAYER.replace(/ aria-label="[^"]*"/, ''), LOOP, ['loop.webm', 'loop.mp4']), ['the video of the hero has no label']);
-  assert.deepEqual(tutorialOf(PLAYER, [], []), [], 'the loop of the hero is no chapter loaded before a click');
+test('test 1509: the panes of the law, the rule and the finding light, for each error of the finding, the lines of the law and of the rule it breaks, and a block that lacks such a line stops the build (control)', () => {
+  const law = ['types:', '  core:', '    may_use: [core]', '    rules: [no-clock]', 'rules:', '  no-clock:', '    why: The core takes the time as an argument.'];
+  const rule = ['export function check({ files: [file] }) {', '  if (/new Date/.test(file.text)) return [{ line: 1, message: \'reads the clock\' }];', '  findings.push(x);', '}'];
+  const finding = ['$ lawcheck check a.ts', 'a.ts:1  error[forbidden-use]  core may not use api', '  why:  a reason', 'a.ts:4  error[no-clock]  reads the clock', 'next: fix a.ts:1'];
+  const shown = panes(law, rule, finding);
+  assert.deepEqual(shown.links, { 'forbidden-use': { law: [2], rule: [] }, 'no-clock': { law: [5, 6, 3], rule: [1, 2] } });
+  assert.deepEqual(shown.finding.map((line) => line.link), ['', 'forbidden-use', 'forbidden-use', 'no-clock', '']);
+  assert.equal(shown.first, 'forbidden-use');
+  assert.equal(shown.finding[1]!.html, 'a.ts:1  <span class="f">error[forbidden-use]</span>  core may not use api');
+  assert.throws(() => panes(law.filter((line) => !line.includes('may_use')), rule, finding), { message: 'site/landing: the block of README.md has no line may_use, which the finding lights' });
+  assert.throws(() => panes(law, rule.slice(0, 1), finding), { message: 'site/landing: the block of README.md has no line that finds, which the finding lights' });
 });
 
 test('test 782: the landing page finds a paragraph, a sentence and a code block by its heading and its opening words, so one that is gone or one that starts like another stops the build, as a missing heading or table row does (control)', () => {
@@ -263,16 +266,6 @@ test('test 892: the check of the built landing page passes a stylesheet that sta
   assert.deepEqual(sheetProblems(null), ['assets has no stylesheet']);
 });
 
-test('test 1501: the check of the built landing page passes the stylesheet of the landing page, whose chapter cards put Play and Read the page under the title on a phone, and names a chapter card that stays a row there, where the length of a title decides where the buttons go (control)', () => {
-  const css = read('site/landing/.vitepress/theme/landing.css');
-  assert.deepEqual(sheetProblems(css), []);
-  const row = '.chapter-bar{display:flex;flex-wrap:wrap}';
-  const named = [320, 360, 390].map((width) => `at ${width} px .chapter-bar is a row, so the length of a title decides where its chapter card puts Play and Read the page`);
-  assert.deepEqual(sheetProblems(row), named);
-  assert.deepEqual(sheetProblems(`${row}@media(max-width:860px){.chapter-bar{flex-direction:column}}`), []);
-  assert.deepEqual(sheetProblems(`${row}@media(max-width:300px){.chapter-bar{flex-direction:column}}`), named);
-});
-
 test('test 1009: the finding on the card and in its alt text is the whole line that README.md shows, and the alt text says it is the first line of a finding (issue 244)', () => {
   const line = `${FINDING.place}  ${FINDING.code}  ${FINDING.text}`;
   assert.ok(read('README.md').split('\n').includes(line), 'a whole line of README.md');
@@ -316,17 +309,19 @@ test('test 1140: the redirect file of the landing sends /docs, /docs/ and /docs/
   }
 });
 
-test('test 1426: the first contact gives the architecture and the rules equal place: README.md and docs/index.md open with the category line of the card and the landing page and the promise of the manifests, and README.md, docs/index.md and the landing page each show a law with may_use and a script rule, the rule file, and a finding of each', () => {
-  const promise = `${CATEGORY}. You write down which layer may use which and script the rules your code must keep, and Lawcheck names the file and line that break them, in the hooks of Claude Code, Codex and Copilot CLI and in CI.`;
-  assert.equal(copyOf(read('site/landing/index.md')).copy.h1, CATEGORY);
-  assert.ok((JSON.parse(read('package.json')) as { description: string }).description.startsWith(promise), 'package.json opens with the promise');
+test('test 1426: the first contact opens with one sentence: README.md, docs/index.md and the h1 of the landing page start with it, package.json starts with its words, and README.md, docs/index.md and the landing page each show a law with may_use and a script rule, the rule file, and a finding of each', () => {
+  const opener = "Lawcheck checks your coding agent's edits against the architecture rules you write down.";
   const fragments = new Fragments(ROOT);
+  assert.equal(fragments.sentence('README.md', 'Lawcheck', 'Lawcheck checks'), opener);
+  assert.ok(read('docs/index.md').startsWith(`# Lawcheck\n\n${opener} `), 'docs/index.md opens with the sentence');
+  assert.ok(read('site/landing/facts.ts').includes("lead: readme(fragments.sentence('README.md', 'Lawcheck', 'Lawcheck checks your coding agent'))"), 'the h1 of the landing page is the sentence of README.md');
+  assert.ok(read('site/landing/Landing.vue').includes('<h1 class="lead" v-html="data.lead" />'));
+  assert.ok((JSON.parse(read('package.json')) as { description: string }).description.startsWith("Checks your coding agent's edits against the architecture rules you write"), 'package.json opens with the words of the sentence');
   const shown = [
-    { page: 'README.md', law: ['Lawcheck', 'lawcheck: 0.1.0'], rule: ['Lawcheck', 'export function check'], finding: ['Lawcheck', '$ lawcheck check'] },
+    { page: 'README.md', law: ['A law, a rule and a finding', 'lawcheck: 0.1.0'], rule: ['A law, a rule and a finding', 'export function check'], finding: ['A law, a rule and a finding', '$ lawcheck check'] },
     { page: 'docs/index.md', law: ['A rule and a finding', 'lawcheck: 0.1.0'], rule: ['A rule and a finding', 'export function check'], finding: ['A rule and a finding', 'lawcheck: FAIL'] },
   ];
   for (const { page, law, rule, finding } of shown) {
-    assert.ok(read(page).includes(`\n${promise}`), `${page} opens with the promise`);
     const written = parse(fragments.code(page, law[0]!, law[1]!).code) as { rules: Record<string, unknown>; types: Record<string, { may_use?: string[]; rules?: string[] }> };
     const ruled = Object.values(written.types).find((type) => type.may_use !== undefined && type.rules !== undefined);
     assert.ok(ruled, `${page}: one type of the law has may_use and rules`);
@@ -338,7 +333,7 @@ test('test 1426: the first contact gives the architecture and the rules equal pl
     assert.ok(output.includes(`  error[${id}]  `), `${page}: a finding of ${id}`);
   }
   const landing = read('site/landing/Landing.vue');
-  for (const shownThere of ['data.law.law', 'data.law.rule', 'data.law.finding']) assert.ok(landing.includes(`v-html="${shownThere}"`), `the landing page shows ${shownThere}`);
+  for (const pane of ['panes.law', 'panes.rule', 'panes.finding']) assert.ok(landing.includes(` in ${pane}"`), `the landing page shows ${pane}`);
   const facts = read('site/landing/facts.ts');
-  assert.ok(facts.includes("code('README.md', 'Lawcheck', 'export function check')"), 'the landing page takes the rule file of README.md');
+  for (const start of ['lawcheck: ', 'export function check', '$ lawcheck check']) assert.ok(facts.includes(`lines('A law, a rule and a finding', '${start}')`), `the landing page takes the block of README.md that starts with ${start}`);
 });
