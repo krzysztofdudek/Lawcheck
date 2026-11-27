@@ -270,7 +270,7 @@ types:
 
 const FLOW = ['edit', 'check', 'fix', 'pull request'];
 
-const TAG = 'Lawcheck checks every edit your coding agent makes against your architecture rules.';
+const TAG = 'Lawcheck checks your coding agent\'s edits against the architecture rules you write down.';
 const SCENES = [
   { len: 2.6, flow: null, caption: '', mid: true, draw: (t) => `
     <div class="who">
@@ -300,7 +300,7 @@ const SCENES = [
       <div class="card" ${show(t, 0)}>
         <div class="h fname">CLAUDE.md</div>
         <div class="txt">The business logic in src/core must not import the HTTP layer in src/api.</div>
-        ${broke ? `<div class="outcome quiet" ${show(t, 3.5, 0.3)}><span class="dot"></span>The agent reads it. Nothing checks it.</div>` : ''}
+        ${broke ? `<div class="outcome quiet" ${show(t, 3.5, 0.3)}><span class="dot"></span>The agent reads it. Claude Code does not check the code against it.</div>` : ''}
       </div>
       <div class="card" ${show(t, 0.3)}>
         <div class="h fname">Your linter</div>
@@ -310,7 +310,7 @@ const SCENES = [
       <div class="card law" ${show(t, 0.6)}>
         <div class="h fname">.lawcheck/law.yaml</div>
         <div class="mono" style="font-size:clamp(13px,1.15vw,17px)">${['core:', '  paths: ["src/core/**"]', '  may_use: [core]', '  rules: [no-clock]'].map((l) => `<div>${yamlLine(l)}</div>`).join('')}</div>
-        <div class="txt" style="margin-top:6px">One law for all 12 languages.</div>
+        <div class="txt" style="margin-top:6px">One law reads the imports of 12 languages.</div>
         ${broke ? `<div class="outcome loud" ${show(t, 4.1, 0.3)}><span class="dot"></span>Checks after every edit of the agent, at the end of its turn, and in CI.</div>` : ''}
       </div>
     </div>`;
@@ -365,8 +365,9 @@ const SCENES = [
       <div class="enforce" ${show(t, 0.3)}><span><b>After each edit</b> file and line to the agent</span><span><b>Before the agent finishes</b> sent back to fix it, up to 3 times</span><span><b>Pull request</b> fails in CI</span></div>
       <ol class="steps3">
         <li ${show(t, 0.5)}><span class="n">1</span><span>Install the tool</span><code>npm install --global lawcheck@alpha</code></li>
-        <li ${show(t, 0.9)}><span class="n">2</span><span>Create the law, then describe your folders as types (lawcheck docs quick-start)</span><code>lawcheck init</code></li>
-        <li ${show(t, 1.3)}><span class="n">3</span><span>Add the plugin to your agent: it brings the hooks</span><code>claude plugin marketplace add krzysztofdudek/Lawcheck</code><code>claude plugin install lawcheck@lawcheck-marketplace</code></li>
+        <li ${show(t, 0.9)}><span class="n">2</span><span>Create an empty law in your repository</span><code>lawcheck init</code></li>
+        <li ${show(t, 1.3)}><span class="n">3</span><span>Add the plugin to your agent, then start a new session</span><code>claude plugin marketplace add krzysztofdudek/Lawcheck</code><code>claude plugin install lawcheck@lawcheck-marketplace</code></li>
+        <li ${show(t, 1.6)}><span class="n">4</span><span>Describe your folders as types, then check</span><code>lawcheck docs quick-start</code><code>lawcheck check</code></li>
       </ol>
       <div class="lbl" style="font-size:clamp(14px,1.2vw,18px);color:var(--muted)" ${show(t, 1.7)}>Codex and Copilot CLI install the same plugin with their own two commands.</div>
     </div>` },

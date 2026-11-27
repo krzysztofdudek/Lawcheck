@@ -133,10 +133,10 @@ footer a { color: var(--muted); }
 
   <section id="what">
     <span class="branch" aria-hidden="true"></span>
-    <h1 class="lead">Lawcheck checks every edit your coding agent makes against the architecture rules you write down.</h1>
+    <h1 class="lead">Lawcheck checks your coding agent's edits against the architecture rules you write down.</h1>
     <div class="facts">
       <div class="fact"><b>When it checks</b><span>After each edit, at the end of the agent's turn, and in CI.</span></div>
-      <div class="fact"><b>Where</b><span>One law for twelve languages, from TypeScript and Python to Go and Java.</span></div>
+      <div class="fact"><b>Where</b><span>One law reads the imports of twelve languages, from TypeScript and Python to Go and Java. Limits names the forms it misses.</span></div>
       <div class="fact"><b>Price</b><span>Free and open source under the MIT license. It runs on your machine.</span></div>
       <div class="fact"><b>AI model</b><span>Only for rules written in prose, when you run <code>--review</code>, through a provider you pick and pay for, or a local Ollama.</span></div>
     </div>
@@ -150,11 +150,11 @@ footer a { color: var(--muted); }
       <thead><tr><th></th><th scope="col"><code>CLAUDE.md</code> or <code>AGENTS.md</code></th><th scope="col">Your linter</th><th scope="col" class="us">The law of Lawcheck</th></tr></thead>
       <tbody>
         <tr><th scope="row">States the rule</th><td class="yes">The agent reads it</td><td class="yes">For one language</td><td class="us yes">For twelve languages, in one file</td></tr>
-        <tr><th scope="row">Checks while the agent works</th><td class="no">Nothing checks it</td><td class="no">Only through a hook you write</td><td class="us yes">After each edit, and sends the agent back at the end of its turn, up to three times</td></tr>
-        <tr><th scope="row">Checks in CI</th><td class="no">No</td><td class="yes">Yes</td><td class="us yes">Yes, with no key and no network</td></tr>
+        <tr><th scope="row">Checks while the agent works</th><td class="no">Claude Code does not check the code against it</td><td class="no">Only through a hook you write</td><td class="us yes">After each edit, and sends the agent back at the end of its turn, up to three times</td></tr>
+        <tr><th scope="row">Checks in CI</th><td class="no">No</td><td class="yes">Yes</td><td class="us yes">Yes, with no key and no network unless you set it up to review</td></tr>
       </tbody>
     </table>
-    <p class="note" style="color:var(--muted);font-size:15px">On 2026-11-24 the issues page of Claude Code showed <a href="https://github.com/anthropics/claude-code/issues?q=%22ignores+CLAUDE.md%22+is%3Aissue+created%3A%3C%3D2026-11-24">204 issues for "ignores CLAUDE.md"</a>. Linters named in the docs: eslint-plugin-boundaries, import-linter, ArchUnit and others (<a href="https://docs.lawcheck.dev/other-tools">the whole comparison</a>).</p>
+    <p class="note" style="color:var(--muted);font-size:15px">On 2026-11-24, 204 issues of Claude Code matched <a href="https://github.com/anthropics/claude-code/issues?q=%22ignores+CLAUDE.md%22+is%3Aissue+created%3A%3C%3D2026-11-24">the search "ignores CLAUDE.md"</a>. Linters named in the docs: eslint-plugin-boundaries, import-linter, ArchUnit and others (<a href="https://docs.lawcheck.dev/other-tools">the whole comparison</a>).</p>
   </section>
 
   <section id="law">
@@ -236,7 +236,7 @@ footer a { color: var(--muted); }
   <section id="tutorial">
     <span class="branch" aria-hidden="true"></span>
     <p class="kicker">The tutorial</p>
-    <h2>Five chapters, each a real session, narrated.</h2>
+    <h2>Five chapters, each a real session.</h2>
     <div class="chapters">
       <a class="chapter" href="https://docs.lawcheck.dev/quick-start"><img alt="" loading="lazy" src="https://github.com/krzysztofdudek/Lawcheck/releases/download/v0.1.0-alpha.6/quick-start.jpg"><span>Quick start</span><small>Chapter 1</small></a>
       <a class="chapter" href="https://docs.lawcheck.dev/forbid-a-use"><img alt="" loading="lazy" src="https://github.com/krzysztofdudek/Lawcheck/releases/download/v0.1.0-alpha.6/forbid-a-use.jpg"><span>Forbid a use</span><small>Chapter 2</small></a>
