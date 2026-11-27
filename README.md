@@ -64,7 +64,7 @@ next: fix src/core/discount.ts:1
 
 ## How I work
 
-I build software with coding agents, and I read their code only where a mistake costs a lot or cannot be undone. Everywhere else the rules hold the structure, and the tests check the behaviour. I have worked this way in real client work for many months, with [Yggdrasil](https://github.com/krzysztofdudek/Yggdrasil), an older tool of mine.
+I build software with coding agents, and I read their code only where a mistake costs a lot or cannot be undone. In the rest of the code the rules hold the structure, and the tests check the behaviour. I have worked this way in real client work for many months, with [Yggdrasil](https://github.com/krzysztofdudek/Yggdrasil), an older tool of mine.
 
 Without a rule that is checked, an agent breaks it quietly. In a small pilot, 8 of 20 Claude Code sessions with no rule written down made the business logic import the HTTP handlers, and all 10 tests still passed ([one of the changes](film/takes/a09/change.diff)).
 
