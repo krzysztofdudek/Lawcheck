@@ -79,7 +79,7 @@ claude plugin marketplace add krzysztofdudek/Lawcheck
 claude plugin install lawcheck@lawcheck-marketplace
 ```
 
-`lawcheck init` creates `.lawcheck/law.yaml` at the root of your repository. You reach a first finding in five steps of `lawcheck docs quick-start`, with no model and no key.
+`lawcheck init` creates an empty law, `.lawcheck/law.yaml`, at the root of your repository. Then you describe your folders as types in it: `lawcheck docs quick-start` walks you to a first finding with no model and no key. After you install the plugin, start a new agent session, so the agent gets the law.
 
 In your own repository, your agent can write the first law. Type `/lawcheck:setup` in Claude Code (`$lawcheck:setup` in Codex). It starts from the rules in your `CLAUDE.md`, `AGENTS.md` and linter config, and asks you before it forbids a use the code already makes. It changes nothing outside `.lawcheck/`, except a CI job you ask for.
 
@@ -93,7 +93,7 @@ Codex and GitHub Copilot CLI install the same plugin with their own two commands
 
 - Uses. Lawcheck reads imports and other uses in twelve languages: TypeScript, JavaScript, Python, Go, Rust, Java, Kotlin, C#, C, C++, PHP and Ruby. A use that Lawcheck resolves to a file `may_use` does not allow is a finding. A use that Lawcheck cannot pin to one file is a finding only when `may_use` forbids every file it could name. A form of use that no reader reads gives no finding and no count, and Limits names some.
 - Script rules. A rule is a JavaScript module that gets one file at a time and returns findings, each with its line when it has one. It can read the file's syntax tree in each of the twelve languages, so it holds what an import boundary cannot say, such as `fetch` called only in the API layer. [Write the first one](docs/first-law.md).
-- Rules written in prose. A model judges a rule written in prose, one file at a time. Lawcheck records each pass under a hash of what the model read, the file, the rule and its context files among them. A later check reads that pass in place of a call, and a change to any of them calls for a new review. You pick one of nine providers, among them a local Ollama and the `claude`, `codex`, `gemini` and `copilot` programs with their own sign-in.
+- Rules written in prose. A model judges a rule written in prose, one file at a time. Lawcheck records each pass under a hash of what the model read, the file, the rule and its context files among them. A later check reads that pass in place of a call, and a change to any of them calls for a new review. You pick one of nine providers: `anthropic`, `openai`, `google`, `openai-compatible`, a local `ollama`, or the `claude-code`, `codex`, `gemini-cli` and `copilot-cli` programs with their own sign-in.
 - Debt. `check` judges the files a change touches. `--full` is a deliberate audit of the whole code, run on purpose, and lists the older breaches as debt. Debt is a warning and does not fail the run, unless you pass `--strict`.
 - Waivers. `lawcheck-waive <rule> -- <reason>` drops one rule on one line, and the reason stays in the code. `check` prints a note on a change that adds a waiver or edits the law. Each note names up to five items and counts the rest, and `--json` lists them all. The plugin tells you at the end of a turn in which the agent added a waiver or changed the law.
 

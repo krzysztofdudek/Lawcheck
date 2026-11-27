@@ -175,7 +175,7 @@ footer a { color: var(--muted); }
     <h2>Four steps. No model, no key.</h2>
     <ol class="steps">
       <li><span class="n">1</span><div><div class="what">Install the tool</div><div class="cmd"><code>npm install --global lawcheck@alpha</code><button type="button">Copy</button></div></div></li>
-      <li><span class="n">2</span><div><div class="what">Create the law in your repository</div><div class="cmd"><code>lawcheck init</code><button type="button">Copy</button></div></div></li>
+      <li><span class="n">2</span><div><div class="what">Create an empty law in your repository</div><div class="cmd"><code>lawcheck init</code><button type="button">Copy</button></div></div></li>
       <li><span class="n">3</span><div>
         <div class="what">Add the plugin to your agent: it brings the hooks</div>
         <div class="tabs" role="tablist">
@@ -186,8 +186,8 @@ footer a { color: var(--muted); }
         </div>
         <div id="agentCmds"></div>
       </div></li>
-      <li><span class="n">4</span><div><div class="what">Reach a first finding in five steps</div><div class="cmd"><code>lawcheck docs quick-start</code><button type="button">Copy</button></div>
-        <p class="small">Or let your agent write the first law from your code: type <code>/lawcheck:setup</code> in Claude Code (<code>$lawcheck:setup</code> in Codex). It starts from your <code>CLAUDE.md</code>, <code>AGENTS.md</code> and linter config, asks before it forbids a use the code already makes, and changes nothing outside <code>.lawcheck/</code>.</p>
+      <li><span class="n">4</span><div><div class="what">Describe your folders as types, then check</div><div class="cmd"><code>lawcheck docs quick-start</code><button type="button">Copy</button></div><div class="cmd"><code>lawcheck check</code><button type="button">Copy</button></div>
+        <p class="small"><code>lawcheck init</code> creates an empty law; the quick start fills it, with no model and no key. Or let your agent write the first law from your code: type <code>/lawcheck:setup</code> in Claude Code (<code>$lawcheck:setup</code> in Codex). It starts from your <code>CLAUDE.md</code>, <code>AGENTS.md</code> and linter config, asks before it forbids a use the code already makes, and changes nothing outside <code>.lawcheck/</code>.</p>
       </div></li>
     </ol>
     <p class="small">Lawcheck is an alpha. It needs Node 24 or later and git 2.34 or later. The hooks are plain scripts in <a href="https://github.com/krzysztofdudek/Lawcheck/tree/main/plugin/hooks">plugin/hooks</a>.</p>
@@ -300,7 +300,7 @@ const AGENTS = {
   copilot: ['copilot plugin marketplace add krzysztofdudek/Lawcheck', 'copilot plugin install lawcheck@lawcheck-marketplace'],
 };
 const NOTES = {
-  claude: 'Claude Code gives the agent the law when a session starts.',
+  claude: 'Then start a new Claude Code session: the plugin gives the agent the law when a session starts.',
   codex: 'Codex runs the hooks of a plugin after you trust them in /hooks.',
   copilot: 'Copilot CLI checks before the agent ends its turn.',
   other: 'Any other agent gets one line in its instructions file, and then nothing sends it back.',
