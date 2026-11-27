@@ -72,16 +72,10 @@ On 2026-11-23 I gave Claude Code the same prompt in 80 sessions of a small shop 
 
 Lawcheck is an alpha. It needs Node 24 or later and git 2.34 or later.
 
-```text
-npm install --global lawcheck@alpha
-lawcheck init
-claude plugin marketplace add krzysztofdudek/Lawcheck
-claude plugin install lawcheck@lawcheck-marketplace
-```
-
-`lawcheck init` creates an empty law, `.lawcheck/law.yaml`, at the root of your repository. Then you describe your folders as types in it: `lawcheck docs quick-start` walks you to a first finding with no model and no key. After you install the plugin, start a new agent session, so the agent gets the law.
-
-In your own repository, your agent can write the first law. Type `/lawcheck:setup` in Claude Code (`$lawcheck:setup` in Codex). It starts from the rules in your `CLAUDE.md`, `AGENTS.md` and linter config, and asks you before it forbids a use the code already makes. It changes nothing outside `.lawcheck/`, except a CI job you ask for.
+1. Install the tool: `npm install --global lawcheck@alpha`.
+2. Add the plugin to your agent, then start a new agent session: `claude plugin marketplace add krzysztofdudek/Lawcheck` and `claude plugin install lawcheck@lawcheck-marketplace`.
+3. Create the law at the root of your repository: `lawcheck init` creates an empty `.lawcheck/law.yaml`. Then type `/lawcheck:setup` in Claude Code (`$lawcheck:setup` in Codex), and the agent describes your folders as types. It starts from the rules in your `CLAUDE.md`, `AGENTS.md` and linter config, asks you before it forbids a use the code already makes, and changes nothing outside `.lawcheck/`. To practise first on a new repository with no agent, `lawcheck docs quick-start` walks you to a finding by hand.
+4. Check: `lawcheck check`. None of this needs a model or a key.
 
 Codex and GitHub Copilot CLI install the same plugin with their own two commands: `lawcheck docs codex-cli` and `lawcheck docs copilot-cli`. Any other agent gets one line in its instructions file, `Run lawcheck prime at the start of every session and follow it.`, and then nothing sends it back. The hooks are plain scripts in [plugin/hooks](plugin/hooks), and `lawcheck docs plugin` says what each one does. A script rule is your repository's own code: it can read every file under the root, and it cannot open a network connection.
 
@@ -100,6 +94,7 @@ Codex and GitHub Copilot CLI install the same plugin with their own two commands
 ## Limits
 
 - After three returns the plugin lets the agent finish and tells you that the check still fails.
+- A file the agent writes through the shell, not its edit tool, is checked before the agent finishes, not right after it is written.
 - A pull request can edit its own law. In CI, your team chooses which law judges it: the change's own, the base's or both (`lawcheck docs ci`).
 - Lawcheck does not read every form of use. It misses an `import()` of a variable, `importlib.import_module`, reflection, and a Java call written by its full name with no import, such as `com.shop.Util.run()`. It neither judges nor counts a use it does not read. `lawcheck docs languages` lists the forms for each language.
 

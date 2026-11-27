@@ -127,6 +127,7 @@ footer a { color: var(--muted); }
 </head>
 <body>
 <iframe class="hero" src="hero.html" title="What Lawcheck does, animated"></iframe>
+<p style="text-align:center;color:var(--quiet);font-size:13px;margin:10px 16px 0">The animation shows real output of Lawcheck 0.1.0-alpha.6 on a sample repository. The agent's code in it is an example.</p>
 
 <div class="page">
   <div class="trunk" aria-hidden="true"></div>
@@ -172,12 +173,11 @@ footer a { color: var(--muted); }
   <section id="try">
     <span class="branch" aria-hidden="true"></span>
     <p class="kicker">Try it</p>
-    <h2>Four steps. No model, no key.</h2>
+    <h2>From install to a first finding. No model, no key.</h2>
     <ol class="steps">
       <li><span class="n">1</span><div><div class="what">Install the tool</div><div class="cmd"><code>npm install --global lawcheck@alpha</code><button type="button">Copy</button></div></div></li>
-      <li><span class="n">2</span><div><div class="what">Create an empty law in your repository</div><div class="cmd"><code>lawcheck init</code><button type="button">Copy</button></div></div></li>
-      <li><span class="n">3</span><div>
-        <div class="what">Add the plugin to your agent: it brings the hooks</div>
+      <li><span class="n">2</span><div>
+        <div class="what">Add the plugin to your agent, then start a new agent session</div>
         <div class="tabs" role="tablist">
           <button type="button" role="tab" aria-selected="true" data-agent="claude">Claude Code</button>
           <button type="button" role="tab" aria-selected="false" data-agent="codex">Codex</button>
@@ -186,9 +186,10 @@ footer a { color: var(--muted); }
         </div>
         <div id="agentCmds"></div>
       </div></li>
-      <li><span class="n">4</span><div><div class="what">Describe your folders as types, then check</div><div class="cmd"><code>lawcheck docs quick-start</code><button type="button">Copy</button></div><div class="cmd"><code>lawcheck check</code><button type="button">Copy</button></div>
-        <p class="small"><code>lawcheck init</code> creates an empty law; the quick start fills it, with no model and no key. Or let your agent write the first law from your code: type <code>/lawcheck:setup</code> in Claude Code (<code>$lawcheck:setup</code> in Codex). It starts from your <code>CLAUDE.md</code>, <code>AGENTS.md</code> and linter config, asks before it forbids a use the code already makes, and changes nothing outside <code>.lawcheck/</code>.</p>
+      <li><span class="n">3</span><div><div class="what">Create the law: your agent describes your folders as types</div><div class="cmd"><code>lawcheck init</code><button type="button">Copy</button></div><div class="cmd"><code>/lawcheck:setup</code><button type="button">Copy</button></div>
+        <p class="small"><code>lawcheck init</code> creates an empty law. Then type <code>/lawcheck:setup</code> to your agent (<code>$lawcheck:setup</code> in Codex). It starts from your <code>CLAUDE.md</code>, <code>AGENTS.md</code> and linter config, asks before it forbids a use the code already makes, and changes nothing outside <code>.lawcheck/</code>. To practise by hand on a new repository first: <code>lawcheck docs quick-start</code>.</p>
       </div></li>
+      <li><span class="n">4</span><div><div class="what">Check</div><div class="cmd"><code>lawcheck check</code><button type="button">Copy</button></div></div></li>
     </ol>
     <p class="small">Lawcheck is an alpha. It needs Node 24 or later and git 2.34 or later. The hooks are plain scripts in <a href="https://github.com/krzysztofdudek/Lawcheck/tree/main/plugin/hooks">plugin/hooks</a>.</p>
   </section>
@@ -300,7 +301,7 @@ const AGENTS = {
   copilot: ['copilot plugin marketplace add krzysztofdudek/Lawcheck', 'copilot plugin install lawcheck@lawcheck-marketplace'],
 };
 const NOTES = {
-  claude: 'Then start a new Claude Code session: the plugin gives the agent the law when a session starts.',
+  claude: 'The plugin gives the agent the law when a session starts.',
   codex: 'Codex runs the hooks of a plugin after you trust them in /hooks.',
   copilot: 'Copilot CLI checks before the agent ends its turn.',
   other: 'Any other agent gets one line in its instructions file, and then nothing sends it back.',

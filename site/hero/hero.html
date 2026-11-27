@@ -335,9 +335,9 @@ const SCENES = [
   { len: 5.0, flow: [2], caption: 'The agent fixes the code. The check passes.', draw: (t) => `
     <div class="card" ${show(t, 0)}>
       <div class="h">Before</div>
-      <div class="mono" style="font-size:clamp(14px,1.5vw,22px)"><div class="del-line">${tsLine('import { formatMoney } from "../api/format.ts";')}</div></div>
+      <div class="mono" style="font-size:clamp(14px,1.5vw,22px)"><div class="del-line">${tsLine('import { formatMoney } from "../api/format.ts";')}</div><div class="del-line" style="margin-top:6px">${tsLine('  const today = new Date();')}</div></div>
       <div class="h" style="margin-top:14px">After</div>
-      <div class="mono" style="font-size:clamp(14px,1.5vw,22px)"><div class="ins-line">${tsLine('import { formatMoney } from "./money.ts";')}</div></div>
+      <div class="mono" style="font-size:clamp(14px,1.5vw,22px)"><div class="ins-line">${tsLine('import { formatMoney } from "./money.ts";')}</div><div class="ins-line" style="margin-top:6px">${tsLine('  const today = now;')}</div></div>
     </div>
     ${t > 1.0 ? `<div class="verdict ok" ${show(t, 1.0, 0.2)}><div class="by">${MARK} Lawcheck, right after the edit <span class="chip green">runs on your machine, no AI, free</span></div><div class="head pass">lawcheck: PASS</div></div>` : ''}` },
   { len: 5.4, flow: [], caption: 'Rules written in prose: an AI model you pick reads them, only when you ask, on your own account.', draw: (t) => {
@@ -365,9 +365,9 @@ const SCENES = [
       <div class="enforce" ${show(t, 0.3)}><span><b>After each edit</b> file and line to the agent</span><span><b>Before the agent finishes</b> sent back to fix it, up to 3 times</span><span><b>Pull request</b> fails in CI</span></div>
       <ol class="steps3">
         <li ${show(t, 0.5)}><span class="n">1</span><span>Install the tool</span><code>npm install --global lawcheck@alpha</code></li>
-        <li ${show(t, 0.9)}><span class="n">2</span><span>Create an empty law in your repository</span><code>lawcheck init</code></li>
-        <li ${show(t, 1.3)}><span class="n">3</span><span>Add the plugin to your agent, then start a new session</span><code>claude plugin marketplace add krzysztofdudek/Lawcheck</code><code>claude plugin install lawcheck@lawcheck-marketplace</code></li>
-        <li ${show(t, 1.6)}><span class="n">4</span><span>Describe your folders as types, then check</span><code>lawcheck docs quick-start</code><code>lawcheck check</code></li>
+        <li ${show(t, 0.9)}><span class="n">2</span><span>Add the plugin to your agent, then start a new session</span><code>claude plugin marketplace add krzysztofdudek/Lawcheck</code><code>claude plugin install lawcheck@lawcheck-marketplace</code></li>
+        <li ${show(t, 1.3)}><span class="n">3</span><span>Create the law, and let your agent describe your folders</span><code>lawcheck init</code><code>/lawcheck:setup</code></li>
+        <li ${show(t, 1.6)}><span class="n">4</span><span>Check</span><code>lawcheck check</code></li>
       </ol>
       <div class="lbl" style="font-size:clamp(14px,1.2vw,18px);color:var(--muted)" ${show(t, 1.7)}>Codex and Copilot CLI install the same plugin with their own two commands.</div>
     </div>` },

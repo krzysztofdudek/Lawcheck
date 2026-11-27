@@ -95,7 +95,7 @@ A [reviewer rule](reviewer-rules.md) is written in prose, such as "each error a 
 
 - [Claude Code](claude-code.md): the plugin checks each file the agent edits with `Write`, `Edit` or `NotebookEdit`. Before the agent finishes its answer to your prompt, the plugin checks every file the agent changed for that prompt. While those files break the law, the plugin sends the agent back to work, up to three times.
 - [Codex](codex-cli.md): the same plugin checks each file the agent writes with `apply_patch`, and sends the agent back the same way before it finishes.
-- [GitHub Copilot CLI](copilot-cli.md): before the agent finishes, the plugin checks every file that changed in its turn, and sends the agent back the same way. The plugin asks the agent to tell you its messages.
+- [GitHub Copilot CLI](copilot-cli.md): the plugin checks each file the agent writes with `create` or `edit`. Before the agent finishes, it checks every file that changed in its turn, and sends the agent back the same way. The plugin asks the agent to tell you its messages.
 - [Any other agent](other-agents.md): one line in its instructions file tells the agent to run `lawcheck prime`. That command prints the law and the commands that check it. Nothing sends that agent back.
 - [CI](ci.md): `lawcheck check --base origin/main` judges the files of the pull request. It needs no key and no network.
 
@@ -103,12 +103,12 @@ A [reviewer rule](reviewer-rules.md) is written in prose, such as "each error a 
 
 ```text
 npm install --global lawcheck@alpha
-lawcheck init
 claude plugin marketplace add krzysztofdudek/Lawcheck
 claude plugin install lawcheck@lawcheck-marketplace
+lawcheck init
 ```
 
-`lawcheck init` creates an empty law. `lawcheck docs quick-start` fills it and takes you to a first finding. After you install the plugin, start a new agent session, so the agent gets the law. Codex and Copilot CLI install the same plugin with their own two commands ([Codex](codex-cli.md), [GitHub Copilot CLI](copilot-cli.md)).
+Start a new agent session after you install the plugin, so the agent gets the law. `lawcheck init` creates an empty law. In your own repository, type `/lawcheck:setup` and the agent describes your folders as types ([Let a coding agent write the first law](agent-setup.md)). To practise on a new repository by hand, `lawcheck docs quick-start` takes you to a first finding. Codex and Copilot CLI install the same plugin with their own two commands ([Codex](codex-cli.md), [GitHub Copilot CLI](copilot-cli.md)).
 
 The quick start ends on a rule about which layer may import which. For a first rule about the text of a file, such as no `console.log` in one folder, read [The first type and the first rule](first-law.md) or run `lawcheck docs first-law`.
 
