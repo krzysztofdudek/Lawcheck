@@ -1,7 +1,7 @@
 {
   "name": "lawcheck",
   "version": "0.1.0-alpha.6",
-  "description": "Checks every edit your coding agent makes against the architecture rules you write in one file: right after the edit, before the agent finishes, and in CI. Works for 12 languages. Free (MIT), runs locally, calls an AI model only for rules written in prose, when you ask.",
+  "description": "Checks your coding agent's edits against the architecture rules you write in one file: right after the edit, before the agent finishes, and in CI. Reads imports in 12 languages. Free (MIT), runs locally, calls an AI model only for rules written in prose, when you ask.",
   "license": "MIT",
   "author": "Krzysztof Dudek",
   "repository": {

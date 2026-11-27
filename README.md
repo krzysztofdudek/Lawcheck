@@ -2,13 +2,13 @@
 
 [![Claude Code imports the HTTP handlers into the business logic, and the tests pass. Lawcheck names the line. With the same prompt, the law and the plugin, the agent keeps the layers apart.](https://github.com/krzysztofdudek/Lawcheck/releases/download/v0.1.0-alpha.6/loop.gif)](https://lawcheck.dev)
 
-Lawcheck checks every edit your coding agent makes against the architecture rules you write down. It runs after each edit, at the end of the agent's turn and in CI, with one law for twelve languages. It is free and open source under the MIT license, and it runs on your machine. It calls an AI model only for a rule written in prose, and only when you run `lawcheck check --review`, through a provider you pick and pay for yourself, or a local Ollama.
+Lawcheck checks your coding agent's edits against the architecture rules you write down. It runs after each edit, at the end of the agent's turn and in CI, with one law for twelve languages. It is free and open source under the [MIT license](LICENSE), and it runs on your machine. It calls an AI model only for a rule written in prose, and only when you run `lawcheck check --review`, through a provider you pick and pay for yourself, or a local Ollama.
 
 ## Why not `CLAUDE.md` or your linter
 
 You can write a rule such as "the business logic must not import the HTTP layer" in three places:
 
-- `CLAUDE.md` or `AGENTS.md`. The agent reads the rule, and nothing checks the code against it. On 2026-11-24, the issues page of Claude Code showed 204 issues for [the query "ignores CLAUDE.md" is:issue created:<=2026-11-24](https://github.com/anthropics/claude-code/issues?q=%22ignores+CLAUDE.md%22+is%3Aissue+created%3A%3C%3D2026-11-24).
+- `CLAUDE.md` or `AGENTS.md`. The agent reads the rule, and Claude Code does not check the code against it. On 2026-11-24, 204 issues of Claude Code matched [the search "ignores CLAUDE.md" is:issue created:<=2026-11-24](https://github.com/anthropics/claude-code/issues?q=%22ignores+CLAUDE.md%22+is%3Aissue+created%3A%3C%3D2026-11-24).
 - Your linter. eslint-plugin-boundaries, import-linter or ArchUnit holds the rule for one language and runs in CI. Inside the agent's turn it runs only through a hook you write.
 - The law of Lawcheck. One file holds the rule for TypeScript, JavaScript, Python, Go, Rust, Java, Kotlin, C#, C, C++, PHP and Ruby. The plugin checks each file the agent edits and hands the agent the file and line. Before the turn ends it checks again, and it sends the agent back, up to three times, while the code breaks the law. A CI job checks the same law with no key and no network.
 
