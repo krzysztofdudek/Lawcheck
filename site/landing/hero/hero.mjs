@@ -25,7 +25,7 @@ function tsLine(line) {
 }
 
 const FLOW = ['edit', 'check', 'fix', 'pull request'];
-const TAG = 'Lawcheck checks your coding agent\'s edits against the architecture rules you write down.';
+const TAG = 'Write an architecture rule down once, and stop watching for it in every change your coding agent makes.';
 
 function scenesOf(mark) {
   return [
