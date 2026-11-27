@@ -18,26 +18,16 @@ export interface Chapter {
   release?: string;
 }
 
-export interface Loop {
-  seconds: number;
-  files: { mp4: ChapterFile; webm: ChapterFile; gif: ChapterFile };
-  release?: string;
-}
-
-// The loop and the chapters are attachments of a GitHub release, listed with their hashes in film/published.json; no video enters the repository.
+// The chapters are attachments of a GitHub release, listed with their hashes in film/published.json; no video enters the repository.
 // LAWCHECK_FILM_DIR names a folder that node film/render.mjs wrote, for a preview of chapters no release holds yet.
 const local = process.env.LAWCHECK_FILM_DIR;
 
-function listed(): { chapters: Chapter[]; loop?: Loop | null } {
-  return JSON.parse(readFileSync(local ? join(local, 'chapters.json') : join(REPOSITORY, 'film', 'published.json'), 'utf8')) as { chapters: Chapter[]; loop?: Loop | null };
+function listed(): { chapters: Chapter[] } {
+  return JSON.parse(readFileSync(local ? join(local, 'chapters.json') : join(REPOSITORY, 'film', 'published.json'), 'utf8')) as { chapters: Chapter[] };
 }
 
 export function chapters(): Chapter[] {
   return listed().chapters;
-}
-
-export function loop(): Loop | null {
-  return listed().loop ?? null;
 }
 
 export function chapterOf(page: string) {
@@ -57,8 +47,7 @@ async function bytesOf(item: { release?: string }, what: string, file: ChapterFi
 
 export async function writeChapterFiles(folder: string): Promise<void> {
   mkdirSync(folder, { recursive: true });
-  const shown = loop();
-  const items = [...chapters().map((chapter) => ({ item: chapter as { release?: string; files: Record<string, ChapterFile> }, what: `the chapter ${chapter.page}` })), ...(shown ? [{ item: shown, what: 'the loop' }] : [])];
+  const items = chapters().map((chapter) => ({ item: chapter as { release?: string; files: Record<string, ChapterFile> }, what: `the chapter ${chapter.page}` }));
   for (const { item, what } of items) {
     for (const file of Object.values(item.files)) {
       const bytes = await bytesOf(item, what, file);

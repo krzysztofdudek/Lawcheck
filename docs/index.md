@@ -1,6 +1,8 @@
 # Lawcheck
 
-Architecture and rule checks for coding agents. You write down which layer may use which and script the rules your code must keep, and Lawcheck names the file and line that break them, in the hooks of Claude Code, Codex and Copilot CLI and in CI. A model you pick judges a [reviewer rule](concepts.md#reviewer-rule), written in prose, when you run `lawcheck check --review`, on your machine or in a CI job set up to review. The check of imports reads them in 12 languages with no model. A [script rule](concepts.md#script-rule) is a JavaScript file of your repository, and it runs with no model too.
+Lawcheck checks your coding agent's edits against the architecture rules you write down. It checks while the agent writes code, again before the agent finishes, and in CI, with one [law](concepts.md#law) that reads imports and other uses in 12 languages. It is free and open source under the MIT license, and it runs on your machine. It calls an AI model only for a [rule written in prose](concepts.md#reviewer-rule), and only when you run `lawcheck check --review`, through a provider you pick and pay for, or a local Ollama.
+
+A rule in `CLAUDE.md` or `AGENTS.md` is read by the agent, and Claude Code does not check the code against it. Your linter holds a rule for one language and runs in CI; inside the agent's work it runs only through a hook you write; the Lawcheck plugin is such a hook, ready-made. The Lawcheck plugin checks while the agent works, and CI checks the same law ([Lawcheck and the tools you already use](other-tools.md)).
 
 ## A law and a finding
 
@@ -93,17 +95,20 @@ A [reviewer rule](reviewer-rules.md) is written in prose, such as "each error a 
 
 - [Claude Code](claude-code.md): the plugin checks each file the agent edits with `Write`, `Edit` or `NotebookEdit`. Before the agent finishes its answer to your prompt, the plugin checks every file the agent changed for that prompt. While those files break the law, the plugin sends the agent back to work, up to three times.
 - [Codex](codex-cli.md): the same plugin checks each file the agent writes with `apply_patch`, and sends the agent back the same way before it finishes.
-- [GitHub Copilot CLI](copilot-cli.md): before the agent finishes, the plugin checks every file that changed in its turn, and sends the agent back the same way. The plugin asks the agent to tell you its messages.
-- [Cursor](cursor.md): Cursor loads the plugin through its support for Claude Code plugins. No session of Cursor has run the plugin.
+- [GitHub Copilot CLI](copilot-cli.md): the plugin checks each file the agent writes with `create` or `edit`. Before the agent finishes, it checks every file that changed in its turn, and sends the agent back the same way. The plugin asks the agent to tell you its messages.
 - [Any other agent](other-agents.md): one line in its instructions file tells the agent to run `lawcheck prime`. That command prints the law and the commands that check it. Nothing sends that agent back.
-- [CI](ci.md): `lawcheck check --base origin/main` judges the files of the pull request. It needs no key and no network.
+- [CI](ci.md): `lawcheck check --base origin/main` judges the files of the pull request. It needs no key and no network, unless you set the job up to review rules written in prose.
 
 ## Try it
 
 ```text
 npm install --global lawcheck@alpha
-lawcheck docs quick-start
+claude plugin marketplace add krzysztofdudek/Lawcheck
+claude plugin install lawcheck@lawcheck-marketplace
+lawcheck init
 ```
+
+Start a new agent session after you install the plugin, so the agent gets the law. `lawcheck init` creates an empty law. In your own repository, type `/lawcheck:setup` and the agent describes your folders as types ([Let a coding agent write the first law](agent-setup.md)). To practise on a new repository by hand, `lawcheck docs quick-start` takes you to a first finding. Codex and Copilot CLI install the same plugin with their own two commands ([Codex](codex-cli.md), [GitHub Copilot CLI](copilot-cli.md)).
 
 The quick start ends on a rule about which layer may import which. For a first rule about the text of a file, such as no `console.log` in one folder, read [The first type and the first rule](first-law.md) or run `lawcheck docs first-law`.
 

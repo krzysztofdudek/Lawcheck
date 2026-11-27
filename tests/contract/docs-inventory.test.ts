@@ -217,7 +217,7 @@ test('question 95: control, a name is held by a heading or a first cell, alone, 
 const readText = (path: string): string => readFileSync(join(ROOT, path), 'utf8');
 
 // Ruling cursor-bez-sesji: no session of Cursor has run the plugin, so a text about Cursor says only that Cursor loads it through its support for Claude Code plugins and that no session has run it.
-const CURSOR_TEXTS = ['README.md', 'CHANGELOG.md', 'docs/changelog.md', 'docs/index.md', 'docs/other-tools.md', 'docs/other-agents.md', 'docs/plugin.md', 'docs/cursor.md'];
+const CURSOR_TEXTS = ['CHANGELOG.md', 'docs/changelog.md', 'docs/other-tools.md', 'docs/other-agents.md', 'docs/plugin.md', 'docs/cursor.md'];
 
 test('test 1310: every text about Cursor says that no session of Cursor has run the plugin and claims nothing of the hooks or entries Cursor would need (control)', () => {
   for (const page of CURSOR_TEXTS) {
@@ -227,8 +227,7 @@ test('test 1310: every text about Cursor says that no session of Cursor has run 
   }
   assert.ok(!readText('docs/cursor.md').includes('| `PostToolUse` |'), 'docs/cursor.md has no table of what each hook does in Cursor');
   assert.ok(readText('docs/cursor.md').includes('Cursor loads a plugin only when `enabledPlugins` holds `true` for it'));
-  assert.ok(readText('README.md').includes("loads through Cursor's support for Claude Code plugins"));
-  assert.ok(readText('docs/index.md').includes("Cursor loads the plugin through its support for Claude Code plugins. No session of Cursor has run the plugin."));
+  for (const page of ['README.md', 'docs/index.md']) assert.ok(!readText(page).includes('Cursor'), `${page} leaves Cursor to docs/cursor.md, so it is no text about Cursor`);
 });
 
 test('test 1311: the Copilot CLI texts of docs/copilot-cli.md and other-tools say that the check after an edit never ran in the recorded sessions, the README and the docs home leave it to that page, and the record shows it (control)', () => {

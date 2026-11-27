@@ -7,12 +7,9 @@ import { blocksOf, SCENARIO } from '../contract/docs-blocks.ts';
 import type { Claims, Page } from '../contract/docs-blocks.ts';
 
 export const claims: Claims = {
-  'block 1 under "Lawcheck"': SCENARIO,
-  'block 2 under "Lawcheck"': SCENARIO,
-  'block 3 under "Lawcheck"': SCENARIO,
-  'block 1 under "Try it"': SCENARIO,
-  'block 1 under "Your coding agent"': SCENARIO,
-  'block 2 under "Your coding agent"': SCENARIO,
+  'block 1 under "A law, a rule and a finding"': SCENARIO,
+  'block 2 under "A law, a rule and a finding"': SCENARIO,
+  'block 3 under "A law, a rule and a finding"': SCENARIO,
 };
 
 const read = (path: string): string => readFileSync(join(ROOT, path), 'utf8');
@@ -31,12 +28,14 @@ export async function scenario(page: Page): Promise<void> {
   const readme = read('README.md');
 
   const install = blockOf('docs/install.md', 'block 1 under "Install globally"');
-  assert.equal(page.text('block 1 under "Try it"'), `${install.replace(/^\$ /, '')}\nlawcheck docs quick-start`, 'the install line of docs/install.md, which test 205 runs, then the quick start');
-  assert.ok(readme.includes('first finding in five steps'), 'README.md gives the steps of the quick start');
+  assert.ok(readme.includes(`Install the tool: \`${install.replace(/^\$ /, '')}\`.`), 'the install line of docs/install.md, which test 205 runs');
+  assert.ok(readme.includes('`lawcheck docs quick-start` walks you to a finding by hand'), 'README.md sends a reader with no agent to the quick start');
   assert.deepEqual(read('docs/quick-start.md').match(/^## \d+\. /gm), ['## 1. ', '## 2. ', '## 3. ', '## 4. ', '## 5. ']);
 
-  assert.equal(page.text('block 1 under "Your coding agent"'), blockOf('docs/plugin.md', 'block 1 under "The Claude Code plugin"'), 'the commands that docs/plugin.md builds from the marketplace');
-  assert.equal(page.text('block 2 under "Your coding agent"'), blockOf('docs/other-agents.md', 'block 1 under "1. Add one line to the instructions file"'), 'the line of docs/other-agents.md, whose scenario follows it');
+  const plugin = blockOf('docs/plugin.md', 'block 1 under "The Claude Code plugin"').split('\n');
+  assert.ok(readme.includes(`start a new agent session: ${plugin.map((line) => `\`${line}\``).join(' and ')}.`), 'the commands that docs/plugin.md builds from the marketplace');
+  const line = blockOf('docs/other-agents.md', 'block 1 under "1. Add one line to the instructions file"');
+  assert.ok(readme.includes(`one line in its instructions file, \`${line.replace(/`/g, '')}\`,`), 'the line of docs/other-agents.md, whose scenario follows it');
 
   const own = parse(read('.lawcheck/law.yaml')) as { rules: Record<string, unknown>; types: Types };
   const counted = `${Object.keys(own.rules).length} rules over ${count(own.types)} types`;
@@ -44,12 +43,12 @@ export async function scenario(page: Page): Promise<void> {
 
   await inTemp(async (dir) => {
     const repo = newRepository(dir, {
-      '.lawcheck/law.yaml': page.text('block 1 under "Lawcheck"') + '\n',
-      '.lawcheck/rules/no-clock.mjs': page.text('block 2 under "Lawcheck"') + '\n',
+      '.lawcheck/law.yaml': page.text('block 1 under "A law, a rule and a finding"') + '\n',
+      '.lawcheck/rules/no-clock.mjs': page.text('block 2 under "A law, a rule and a finding"') + '\n',
       'src/api/orders.ts': 'export function orderTotal(order: { total: number }): number {\n  return order.total;\n}\n',
       'src/core/discount.ts': DISCOUNT,
     });
-    const [command, ...output] = page.text('block 3 under "Lawcheck"').split('\n');
+    const [command, ...output] = page.text('block 3 under "A law, a rule and a finding"').split('\n');
     assert.equal(command, '$ lawcheck check src/core/discount.ts');
     const check = await lawcheck(repo, command!.slice('$ lawcheck '.length).split(' '));
     assert.equal(check.code, 1, check.stdout);

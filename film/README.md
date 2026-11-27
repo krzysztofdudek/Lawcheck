@@ -1,6 +1,8 @@
 # The film
 
-The loop at the top of the README and in the hero of the landing page, and the five chapters of the tutorial on the docs site show real Claude Code sessions in a small shop repository. Every string in the recording area comes from a file of a session, from a run of Lawcheck on that session's files, or from a page of this repository. Captions and subtitles have no such source, so the check does not hold them to one. The loop is silent. Each chapter is narrated in the voice Lektor, and every narrated sentence cites what its frame or a docs page shows.
+The five chapters of the tutorial on the docs site, and the loop that the README showed before the hero, show real Claude Code sessions in a small shop repository. Every string in the recording area comes from a file of a session, from a run of Lawcheck on that session's files, or from a page of this repository. Captions and subtitles have no such source, so the check does not hold them to one. The loop is silent. Each chapter is narrated in the voice Lektor, and every narrated sentence cites what its frame or a docs page shows.
+
+The hero at the top of the landing page, and of the README once a release holds its GIF, is not a recording. `site/landing/hero/hero.mjs` draws it, `site/landing/hero/README.md` says which of its strings are output of Lawcheck and which are examples, and the check below does not hold it to a take.
 
 ## What is here
 
@@ -21,9 +23,10 @@ The loop at the top of the README and in the hero of the landing page, and the f
 | `check.mjs` | the truth and staleness check |
 | `voice.mjs` | speaks the narration of each chapter with a speech service, one file per frame, into a folder outside the repository |
 | `build.mjs` | writes a HyperFrames project for the loop and for each chapter into `film/dist/`, each chapter's subtitles, which are its narrated sentences, and with `--voice <folder>` the narration that `voice.mjs` spoke |
-| `render.mjs` | checks, builds and renders the loop to MP4, WebM and GIF, and each chapter with its narration to MP4, WebVTT and a still, and lists them with their hashes in `chapters.json` |
-| `publish.mjs` | fills `published.json` from the attachments of a release and puts the loop of that release at the top of the README |
-| `published.json` | the loop and the chapters that a release holds as attachments, with the hash of each file; the landing page and the docs site show these |
+| `hero.mjs` | renders the hero to `hero.gif`, 800 pixels wide: headless Chromium seeks the animation to each frame, and FFmpeg encodes the frames |
+| `render.mjs` | checks, builds and renders the hero to a GIF, the loop to MP4, WebM and GIF, and each chapter with its narration to MP4, WebVTT and a still, and lists them with their hashes in `chapters.json` |
+| `publish.mjs` | fills `published.json` from the attachments of a release and puts the hero of that release at the top of the README, or its loop when it holds no hero |
+| `published.json` | the hero, the loop and the chapters that a release holds as attachments, with the hash of each file; the landing page and the docs site show the chapters |
 | `rebuild.sh` | the same in a clean container, from FFmpeg and Chromium up |
 | `hyperframes/` | the styles, the spec and the last review of the picture |
 
@@ -62,16 +65,16 @@ The voice is not committed: it is a recording. When the chapters are recorded ag
 
 ## Where the chapters live
 
-The rendered loop and chapters are attachments of a GitHub release, never files of this repository. `published.json` lists them with the release that holds them, the hash of each file and the subtitles as text. The build of the landing page downloads each file, checks its hash and serves it under `/film/`. The hero of the landing page plays the loop, and with no loop listed it shows the refusal `error[forbidden-use]`. The docs site shows a chapter above the page it teaches and plays it from there. The README shows `loop.gif` from the release that `published.json` names, and no loop while it names none.
+The rendered hero, loop and chapters are attachments of a GitHub release, never files of this repository. `published.json` lists them with the release that holds them, the hash of each file and the subtitles as text. The build of the landing page downloads each file of a chapter, checks its hash and serves it under `/film/`. The landing page shows a still of each chapter and links to its page. The docs site shows a chapter above the page it teaches and plays it from the landing page's host. The README shows `hero.gif` from the release that `published.json` names, `loop.gif` while that release holds no hero, and no image while it names none.
 
 A release that brings a new film, once the release workflow has made its GitHub release:
 
-1. renders the loop and the chapters with `node film/render.mjs --out <folder>`, which writes the files and `chapters.json`, and lists the loop in it;
+1. renders the hero, the loop and the chapters with `node film/render.mjs --out <folder>`, which writes the files and `chapters.json`, and lists the hero and the loop in it;
 2. attaches every file of that folder to the release, `chapters.json` with them: `gh release upload <tag> <folder>/*`;
-3. runs `node film/publish.mjs --release <tag>`, which reads `chapters.json` from the release, downloads every file it lists and checks its hash, writes `published.json` with `release` set to the tag, and puts `loop.gif` of that release at the top of the README, under the heading;
+3. runs `node film/publish.mjs --release <tag>`, which reads `chapters.json` from the release, downloads every file it lists and checks its hash, writes `published.json` with `release` set to the tag, and puts `hero.gif` of that release at the top of the README, under the heading, with a text that says what the animation shows;
 4. commits `published.json` and the README, and deploys the landing page and the docs again from that commit.
 
-`node film/publish.mjs --release <tag> --from <folder>` takes the files from a folder that `render.mjs` wrote instead, for a check before they are attached. `LAWCHECK_FILM_DIR=<folder>` makes both sites take the loop and the chapters from such a folder, for a preview before a release holds them. The landing page takes the text of the loop from the README, so a preview with a loop needs the README that `publish.mjs` wrote.
+`node film/publish.mjs --release <tag> --from <folder>` takes the files from a folder that `render.mjs` wrote instead, for a check before they are attached. Run it on a copy of the checkout, since it writes the README and `published.json`. `LAWCHECK_FILM_DIR=<folder>` makes both sites take the chapters from such a folder, for a preview before a release holds them. `node film/render.mjs --out <folder> --only hero` renders the hero alone.
 
 ## What is published of a session
 
@@ -99,10 +102,10 @@ No video, image or recording is committed here. `claude plugin marketplace add` 
 
 ## Render
 
-One command builds the film from this folder in a clean container, and writes `loop.mp4`, `loop.webm` and `loop.gif`, and for each chapter its `.mp4`, `.vtt` and `.jpg` with `chapters.json`, into the folder you name:
+One command builds the film from this folder in a clean container, and writes `hero.gif`, `loop.mp4`, `loop.webm` and `loop.gif`, and for each chapter its `.mp4`, `.vtt` and `.jpg` with `chapters.json`, into the folder you name:
 
 ```text
 docker run --rm -v "$PWD:/src:ro" -v "<a folder outside the repository>:/out" -v "<the folder voice.mjs wrote>:/voice:ro" mcr.microsoft.com/devcontainers/javascript-node:24 sh /src/film/rebuild.sh
 ```
 
-`rebuild.sh` installs FFmpeg and Chromium, copies the checkout without `node_modules` and `dist`, runs `npm ci` and `npm run build`, and then `node film/render.mjs --voice /voice`, which stops when `check.mjs` fails or a narrated frame has no voice that fits it. HyperFrames has no Chrome of its own for Linux on ARM, so the container uses Debian's Chromium on every machine.
+`rebuild.sh` installs FFmpeg and Chromium, copies the checkout without `node_modules` and `dist`, runs `npm ci`, `npm --prefix site ci` for the fonts of the hero and `npm run build`, and then `node film/render.mjs --voice /voice`, which stops when `check.mjs` fails or a narrated frame has no voice that fits it. HyperFrames has no Chrome of its own for Linux on ARM, so the container uses Debian's Chromium on every machine.

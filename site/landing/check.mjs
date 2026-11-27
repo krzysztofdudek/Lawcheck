@@ -9,11 +9,11 @@ const metaOf = (html, attribute, name) => [...html.matchAll(new RegExp(`<meta ${
 const count = (html, pattern) => (html.match(pattern) ?? []).length;
 const decode = (text) => text.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
 
-// The chapters of the tutorial are the ones film/published.json lists, or chapters.json of the folder LAWCHECK_FILM_DIR names; the section #tutorial stands in the page when there is at least one, and not at all when there is none.
+// The chapters of the tutorial are the ones film/published.json lists, or chapters.json of the folder LAWCHECK_FILM_DIR names; the section #tutorial stands in the page when there is at least one, and not at all when there is none. The docs site plays each chapter from this host, so every file of a chapter is served here.
 export function tutorialProblems(index, dir, chapters) {
   const out = [];
   const sections = count(index, /<section\b[^>]*\bid="tutorial"/g);
-  const cards = [...index.matchAll(/<li id="tutorial-([^"]+)"/g)].map((match) => match[1]);
+  const cards = [...index.matchAll(/<a id="tutorial-([^"]+)"/g)].map((match) => match[1]);
   if (chapters.length === 0) {
     if (sections > 0 || cards.length > 0) out.push('index.html shows the tutorial, and film/published.json lists no chapter');
     return out;
@@ -23,33 +23,29 @@ export function tutorialProblems(index, dir, chapters) {
   if (cards.join() !== pages.join()) out.push(`the tutorial shows the chapters [${cards.join(', ')}], and film/published.json lists [${pages.join(', ')}]`);
   for (const chapter of chapters) {
     for (const file of Object.values(chapter.files)) if (!existsSync(join(dir, 'film', file.name))) out.push(`film/${file.name} of the chapter ${chapter.page} is missing`);
-    if (!new RegExp(`<a href="[^"]*/${chapter.page}\\.html">`).test(index)) out.push(`the card of the chapter ${chapter.page} has no link to its page`);
+    const card = new RegExp(`<a id="tutorial-${chapter.page}"[^>]*>[\\s\\S]*?</a>`).exec(index)?.[0] ?? '';
+    if (!new RegExp(`^<a id="tutorial-${chapter.page}"[^>]*\\bhref="[^"]*/${chapter.page}\\.html"`).test(card)) out.push(`the card of the chapter ${chapter.page} has no link to its page`);
+    const still = /<img\b[^>]*>/.exec(card)?.[0] ?? '';
+    if (!still.includes(`src="/film/${chapter.files.jpg.name}"`)) out.push(`the card of the chapter ${chapter.page} does not show /film/${chapter.files.jpg.name}`);
+    else if (!still.includes('loading="lazy"')) out.push(`the still of the chapter ${chapter.page} loads before it is scrolled to`);
   }
-  if (count(index, /class="button chapter-play"/g) !== chapters.length) out.push(`the tutorial has ${count(index, /class="button chapter-play"/g)} Play buttons, not ${chapters.length}`);
-  if (/<(?:video|source|track|img)\b[^>]*\/film\/(?!loop\.)/.test(index)) out.push('index.html loads a video, a track or an image of a chapter before a click');
+  if (/<(?:video|source|track)\b[^>]*\/film\//.test(index)) out.push('index.html loads a video or a track of a chapter');
   return out;
 }
 
-// The hero plays the loop that film/published.json lists, from the files the build downloaded; with no loop listed, it shows the refusal.
-export function heroProblems(index, dir, loop) {
+// The hero is the animation itself, drawn by the page: a section with its scene and a button that stops it, and no request to another host for a font.
+export function heroProblems(index, sheets) {
   const out = [];
-  const hero = /<figure id="film"[\s\S]*?<\/figure>/.exec(index)?.[0] ?? '';
-  if (hero === '') return ['index.html has no figure with the id film in its hero'];
-  if (loop === null || loop === undefined) {
-    if (/<video\b/.test(hero)) out.push('the hero plays a video, and film/published.json lists no loop');
-    if (!hero.includes('error[forbidden-use]')) out.push('the still of the hero does not show error[forbidden-use]');
-    return out;
-  }
-  for (const kind of ['webm', 'mp4']) {
-    const name = loop.files[kind].name;
-    if (!hero.includes(`<source src="/film/${name}" type="video/${kind}">`)) out.push(`the hero has no source /film/${name}`);
-    if (!existsSync(join(dir, 'film', name))) out.push(`film/${name} of the loop is missing`);
-  }
-  if (!/<video\b[^>]*\baria-label="[^"]+"/.test(hero)) out.push('the video of the hero has no label');
-  return out;
+  const hero = /<section class="hero"[\s\S]*?<\/section>/.exec(index)?.[0] ?? '';
+  if (hero === '') return ['index.html has no section with the class hero'];
+  if (!hero.includes('data-hero="scene"')) out.push('the hero has no scene');
+  if (!/<button\b[^>]*data-hero="pause"/.test(hero)) out.push('the hero has no button that pauses it');
+  if (/<video\b|<iframe\b/.test(hero)) out.push('the hero plays a video or a frame, not the animation');
+  for (const text of [index, ...sheets]) if (/fonts\.(?:googleapis|gstatic)\.com/.test(text)) out.push('the page loads a font from Google');
+  return [...new Set(out)];
 }
 
-export function problems(dir, version, chapters = [], loop = null) {
+export function problems(dir, version, chapters = []) {
   const out = [];
   const read = (name) => (existsSync(join(dir, name)) ? readFileSync(join(dir, name), 'utf8') : null);
   const index = read('index.html');
@@ -70,7 +66,9 @@ export function problems(dir, version, chapters = [], loop = null) {
   else out.push(...pngProblems(card));
   if (/noindex/i.test(index)) out.push('index.html says noindex');
   out.push(...tutorialProblems(index, dir, chapters));
-  out.push(...heroProblems(index, dir, loop));
+  const assets = join(dir, 'assets');
+  const sheets = existsSync(assets) ? readdirSync(assets).filter((name) => name.endsWith('.css')).map((name) => readFileSync(join(assets, name), 'utf8')) : [];
+  out.push(...heroProblems(index, sheets));
   if (!index.includes(`>${version}<`)) out.push(`index.html does not show the version ${version}`);
 
   const blocks = [...index.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((match) => match[1]);
@@ -161,15 +159,12 @@ export function phoneProblems(dir) {
   const out = [];
   for (const width of PHONE_WIDTHS) {
     const columns = new Map();
-    let bar;
     for (const rule of rules) {
       if (width > rule.max || width < rule.min) continue;
-      if (rule.selectors.includes('.chapter-bar')) bar = /(?:^|;)\s*flex-direction\s*:\s*([^;]+)/.exec(rule.body)?.[1].trim() ?? bar ?? 'row';
       const value = /(?:^|;)\s*grid-template-columns\s*:\s*([^;]+)/.exec(rule.body)?.[1];
       if (value !== undefined) for (const selector of rule.selectors) columns.set(selector, value.trim());
     }
     for (const [selector, value] of columns) if (trackCount(value) > 1) out.push(`at ${width} px ${selector} keeps ${trackCount(value)} columns (${value}), so its blocks stand side by side on a phone`);
-    if (bar !== undefined && bar !== 'column') out.push(`at ${width} px .chapter-bar is a ${bar}, so the length of a title decides where its chapter card puts Play and Read the page`);
   }
   return out;
 }
@@ -178,12 +173,12 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
   const [dir, manifest] = process.argv.slice(2);
   const { version } = JSON.parse(readFileSync(manifest, 'utf8'));
   const listed = process.env.LAWCHECK_FILM_DIR ? join(process.env.LAWCHECK_FILM_DIR, 'chapters.json') : fileURLToPath(new URL('../../film/published.json', import.meta.url));
-  const { chapters, loop = null } = JSON.parse(readFileSync(listed, 'utf8'));
-  const found = [...problems(dir, version, chapters, loop), ...phoneProblems(dir)];
+  const { chapters } = JSON.parse(readFileSync(listed, 'utf8'));
+  const found = [...problems(dir, version, chapters), ...phoneProblems(dir)];
   if (found.length > 0) {
     console.log(`landing: FAIL  ${found.length} problems in ${dir}`);
     for (const problem of found) console.log(`  ${problem}`);
     process.exit(1);
   }
-  console.log(`landing: PASS  ${dir} has one h1, its title, description, canonical address, Open Graph and its card, JSON-LD for ${version}, a 404 page, robots.txt, sitemap.xml and vercel.json, ${chapters.length === 0 ? 'no tutorial section, since no chapter is listed' : `the section #tutorial with its ${chapters.length} chapters`}, ${loop === null ? 'the refusal in the hero, since no loop is listed' : 'the loop in the hero'}, and, at ${PHONE_WIDTHS.join(', ')} px, no grid of more than one column and no chapter card that puts its buttons beside the title`);
+  console.log(`landing: PASS  ${dir} has one h1, its title, description, canonical address, Open Graph and its card, JSON-LD for ${version}, a 404 page, robots.txt, sitemap.xml and vercel.json, ${chapters.length === 0 ? 'no tutorial section, since no chapter is listed' : `the section #tutorial with its ${chapters.length} chapters`}, the animation in the hero with no font from Google, and, at ${PHONE_WIDTHS.join(', ')} px, no grid of more than one column`);
 }

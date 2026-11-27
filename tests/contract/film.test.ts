@@ -12,7 +12,7 @@ import { decodeTerminal, narrationProblems, privateProblems, privateSummary, pri
 import { build, vttOf } from '../../film/build.mjs';
 import { readEdit, wrap, words } from '../../film/edit.mjs';
 import { joinWav, sentenceSpans, voiceKey, voiceProblems, wavSeconds } from '../../film/voice.mjs';
-import { fromFolder, loopLine, loopUrl, publish, readmeWith } from '../../film/publish.mjs';
+import { fromFolder, heroLine, heroUrl, HERO_TEXT, loopLine, loopUrl, publish, readmeWith } from '../../film/publish.mjs';
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
@@ -583,7 +583,7 @@ test('test 1092: node film/render.mjs --only <page> --voice renders that page wh
   }
 });
 
-test('test 1351: README.md shows the loop only of the release that film/published.json names; node film/publish.mjs fills film/published.json with the loop and the chapters of a release, each file checked against the list that film/render.mjs wrote, puts the loop under the heading of a README.md that shows none and points a README.md that shows one at that release; a missing file, a changed file, a list with no loop, a README with no heading and one with two loops are each refused', async () => {
+test('test 1351: README.md shows the image only of the release that film/published.json names, the hero once a release holds it and the loop of a release before it; node film/publish.mjs fills film/published.json with the hero, the loop and the chapters of a release, each file checked against the list that film/render.mjs wrote, puts the image under the heading of a README.md that shows none and replaces the image line of one that shows one; a missing file, a changed file, a list with no hero and no loop, a README with no heading, one with two images and one whose image line was rewritten are each refused', async () => {
   const folder = testFolder('lawcheck-publish-');
   try {
     const root = join(folder.dir, 'repository');
@@ -591,11 +591,14 @@ test('test 1351: README.md shows the loop only of the release that film/publishe
     mkdirSync(join(root, 'film'), { recursive: true });
     mkdirSync(release);
     const committed = readFileSync(join(ROOT, 'README.md'), 'utf8');
-    const listed = JSON.parse(readFileSync(join(ROOT, 'film', 'published.json'), 'utf8')) as { loop: { release: string } | null };
-    const anyLoop = /https:\/\/github\.com\/krzysztofdudek\/Lawcheck\/releases\/download\/[^/\s)]+\/loop\.gif/g;
-    assert.deepEqual(committed.match(anyLoop) ?? [], listed.loop === null ? [] : [loopUrl(listed.loop.release)], 'README.md shows the loop only of the release that film/published.json names');
-    const readme = listed.loop === null ? committed : committed.replace(`${loopLine(listed.loop.release)}\n\n`, '');
-    assert.ok(readme.startsWith('# Lawcheck\n\n') && !anyLoop.test(readme));
+    const listed = JSON.parse(readFileSync(join(ROOT, 'film', 'published.json'), 'utf8')) as { loop: { release: string } | null; hero?: { release: string } | null };
+    const anyImage = /https:\/\/github\.com\/krzysztofdudek\/Lawcheck\/releases\/download\/[^/\s)]+\/(?:loop|hero)\.gif/g;
+    const shownLine = listed.hero ? heroLine(listed.hero.release) : listed.loop ? loopLine(listed.loop.release) : null;
+    if (shownLine === null) assert.deepEqual(committed.match(anyImage) ?? [], [], 'README.md shows no image while film/published.json names none');
+    else assert.ok(committed.startsWith(`# Lawcheck\n\n${shownLine}\n\n`), 'README.md shows, under its heading, the image line of the release that film/published.json names');
+    const readme = shownLine === null ? committed : committed.replace(`${shownLine}\n\n`, '');
+    assert.ok(readme.startsWith('# Lawcheck\n\n') && !anyImage.test(readme));
+    assert.ok(!/\b\d+(\.\d+)?\s*%|\b(?:always|never|every agent)\b/i.test(HERO_TEXT) && HERO_TEXT.includes('In my pilot') && HERO_TEXT.includes('8 of 20 sessions'), 'the text of the hero claims nothing beyond the pilot');
     writeFileSync(join(root, 'README.md'), readme);
     writeFileSync(join(root, 'film', 'published.json'), '{ "chapters": [], "loop": null }\n');
     const file = (name: string, text: string) => {
@@ -603,31 +606,46 @@ test('test 1351: README.md shows the loop only of the release that film/publishe
       return { name, sha256: createHash('sha256').update(text).digest('hex'), bytes: Buffer.byteLength(text) };
     };
     const loop = { seconds: 28.9, files: { mp4: file('loop.mp4', 'mp4'), webm: file('loop.webm', 'webm'), gif: file('loop.gif', 'gif') } };
+    const hero = { seconds: 55, files: { gif: file('hero.gif', 'hero') } };
     const chapter = { page: 'ci', number: 5, seconds: 55, transcript: ['The job runs.'], files: { mp4: file('ci.mp4', 'video'), vtt: file('ci.vtt', 'WEBVTT'), jpg: file('ci.jpg', 'still') } };
-    writeFileSync(join(release, 'chapters.json'), JSON.stringify({ chapters: [chapter], loop }));
+    const list = (entries: object) => writeFileSync(join(release, 'chapters.json'), JSON.stringify(entries));
+    const withImage = (line: string) => `# Lawcheck\n\n${line}\n\n${readme.slice('# Lawcheck\n\n'.length)}`;
 
+    list({ chapters: [chapter], loop });
+    const before = await publish(root, 'v9.9.8', fromFolder(release), 'the release v9.9.8');
+    assert.deepEqual(before, { chapters: [{ ...chapter, release: 'v9.9.8' }], loop: { ...loop, release: 'v9.9.8' }, hero: null });
+    assert.equal(loopLine('v9.9.8'), `[![Claude Code imports the HTTP handlers into the business logic, and the tests pass. Lawcheck names the line.](${loopUrl('v9.9.8')})](https://lawcheck.dev)`);
+    assert.equal(readFileSync(join(root, 'README.md'), 'utf8'), withImage(loopLine('v9.9.8')), 'a release with no hero puts its loop under the heading, and nothing else of README.md changes');
+
+    list({ chapters: [chapter], loop, hero });
     const published = await publish(root, 'v9.9.9', fromFolder(release), 'the release v9.9.9');
-    assert.deepEqual(published, { chapters: [{ ...chapter, release: 'v9.9.9' }], loop: { ...loop, release: 'v9.9.9' } });
+    assert.deepEqual(published, { chapters: [{ ...chapter, release: 'v9.9.9' }], loop: { ...loop, release: 'v9.9.9' }, hero: { ...hero, release: 'v9.9.9' } });
     assert.deepEqual(JSON.parse(readFileSync(join(root, 'film', 'published.json'), 'utf8')), published);
-    const withLoop = (release: string) => `# Lawcheck\n\n${loopLine(release)}\n\n${readme.slice('# Lawcheck\n\n'.length)}`;
-    assert.equal(loopLine('v9.9.9'), `[![Claude Code imports the HTTP handlers into the business logic, and the tests pass. Lawcheck names the line. With the same prompt, the law and the plugin, the agent keeps the layers apart.](${loopUrl('v9.9.9')})](https://lawcheck.dev)`);
-    assert.equal(readFileSync(join(root, 'README.md'), 'utf8'), withLoop('v9.9.9'), 'README.md gains the loop of the release under its heading, and nothing else of it changes');
+    assert.equal(heroLine('v9.9.9'), `[![${HERO_TEXT}](${heroUrl('v9.9.9')})](https://lawcheck.dev)`);
+    assert.equal(readFileSync(join(root, 'README.md'), 'utf8'), withImage(heroLine('v9.9.9')), 'a release with a hero replaces the line of the loop with the line of the hero');
     await publish(root, 'v9.9.10', fromFolder(release), 'the release v9.9.10');
-    assert.equal(readFileSync(join(root, 'README.md'), 'utf8'), withLoop('v9.9.10'), 'a README.md that shows a loop is pointed at the new release');
+    assert.equal(readFileSync(join(root, 'README.md'), 'utf8'), withImage(heroLine('v9.9.10')), 'a README.md that shows the hero is pointed at the new release');
+    list({ chapters: [], hero });
+    assert.deepEqual((await publish(root, 'v9.9.9', fromFolder(release), 'the release v9.9.9')).loop, null, 'a release may hold the hero and no loop');
+    list({ chapters: [chapter], loop, hero });
     assert.deepEqual(await publish(root, 'v9.9.9', fromFolder(release), 'the release v9.9.9'), published);
 
     writeFileSync(join(release, 'ci.vtt'), 'WEBVTT changed');
     await assert.rejects(publish(root, 'v9.9.9', fromFolder(release), 'the release v9.9.9'), { message: `ci.vtt of the release v9.9.9 has 14 bytes and the hash ${createHash('sha256').update('WEBVTT changed').digest('hex')}, and its chapters.json names 6 bytes and ${chapter.files.vtt.sha256}` });
     rmSync(join(release, 'ci.vtt'));
     await assert.rejects(publish(root, 'v9.9.9', fromFolder(release), 'the release v9.9.9'), { message: 'the release v9.9.9 holds no ci.vtt' });
-    writeFileSync(join(release, 'chapters.json'), JSON.stringify({ chapters: [chapter] }));
-    await assert.rejects(publish(root, 'v9.9.9', fromFolder(release), 'the release v9.9.9'), { message: 'the chapters.json of the release v9.9.9 holds no loop: render it with node film/render.mjs, which lists the loop beside the chapters' });
+    rmSync(join(release, 'hero.gif'));
+    list({ chapters: [], hero });
+    await assert.rejects(publish(root, 'v9.9.9', fromFolder(release), 'the release v9.9.9'), { message: 'the release v9.9.9 holds no hero.gif' });
+    list({ chapters: [chapter] });
+    await assert.rejects(publish(root, 'v9.9.9', fromFolder(release), 'the release v9.9.9'), { message: 'the chapters.json of the release v9.9.9 holds no hero and no loop, one of which the README shows: render them with node film/render.mjs, which lists them beside the chapters' });
     rmSync(join(release, 'chapters.json'));
     await assert.rejects(publish(root, 'v9.9.9', fromFolder(release), 'the release v9.9.9'), { message: 'the release v9.9.9 holds no chapters.json, the list that node film/render.mjs writes' });
-    assert.throws(() => readmeWith('Lawcheck\n', 'v9.9.9'), { message: 'README.md does not start with the heading "# Lawcheck", under which the release step puts the loop' });
-    assert.throws(() => readmeWith(`${loopUrl('v1')} ${loopUrl('v2')}`, 'v9.9.9'), { message: 'README.md names the loop 2 times, and the release step points one address at it' });
+    assert.throws(() => readmeWith('Lawcheck\n', 'v9.9.9'), { message: 'README.md does not start with the heading "# Lawcheck", under which the release step puts the image' });
+    assert.throws(() => readmeWith(`${loopUrl('v1')} ${heroUrl('v2')}`, 'v9.9.9'), { message: 'README.md names the hero or the loop 2 times, and the release step points one address at it' });
+    assert.throws(() => readmeWith(`# Lawcheck\n\nSee ${heroUrl('v1')}.\n`, 'v9.9.9'), { message: `line 3 of README.md names ${heroUrl('v1')} and is not the image line the release step writes` });
     assert.deepEqual(JSON.parse(readFileSync(join(root, 'film', 'published.json'), 'utf8')), published, 'a refused run writes nothing');
-    assert.equal(readFileSync(join(root, 'README.md'), 'utf8'), withLoop('v9.9.9'), 'a refused run leaves README.md as it was');
+    assert.equal(readFileSync(join(root, 'README.md'), 'utf8'), withImage(heroLine('v9.9.9')), 'a refused run leaves README.md as it was');
   } finally {
     folder.remove();
   }

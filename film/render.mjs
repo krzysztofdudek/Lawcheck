@@ -5,6 +5,7 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from './build.mjs';
 import { FILM, readEdit, ROOT } from './edit.mjs';
+import { renderHeroGif } from './hero.mjs';
 
 // The release of HyperFrames this film was built and checked with.
 const HYPERFRAMES = ['npx', '--yes', 'hyperframes@0.9.85'];
@@ -70,7 +71,7 @@ function renderChapter(chapter, out, quality, edit, cli) {
   return { name: chapter.name, files: [mp4, vtt, poster], seconds: chapter.seconds };
 }
 
-export function render(out, quality, only = ['loop', 'chapters'], voice = undefined) {
+export async function render(out, quality, only = ['hero', 'loop', 'chapters'], voice = undefined) {
   const edit = readEdit(ROOT);
   const chapters = (edit.chapters ?? []).filter((chapter) => only.includes('chapters') || only.includes(chapter.page));
   if (voice === undefined && chapters.some((chapter) => chapter.timeline.some((segment) => (segment.narration ?? []).length > 0))) fail('the chapters are narrated: node film/voice.mjs --out <folder> speaks the narration, and --voice <folder> mixes it in');
@@ -91,15 +92,25 @@ export function render(out, quality, only = ['loop', 'chapters'], voice = undefi
     }
   }
   const filesOf = (item) => Object.fromEntries(item.files.map((path) => [path.split('.').pop(), { name: path.split('/').pop(), sha256: sha256(path), bytes: statSync(path).size }]));
-  const rendered = made.filter((item) => item.name !== 'loop').map((item) => ({
+  if (only.includes('hero')) {
+    try {
+      const hero = await renderHeroGif(ROOT, out);
+      made.push({ name: 'hero', files: [hero.file], seconds: hero.seconds, size: hero.size, pixels: `${hero.width} by ${hero.height}` });
+    } catch (error) {
+      fail(error.message);
+    }
+  }
+  const loop = made.find((item) => item.name === 'loop');
+  const hero = made.find((item) => item.name === 'hero');
+  const rendered = made.filter((item) => item.name !== 'loop' && item.name !== 'hero').map((item) => ({
     page: item.name,
     number: edit.chapters.findIndex((chapter) => chapter.page === item.name) + 1,
     seconds: item.seconds,
     transcript: edit.chapters.find((chapter) => chapter.page === item.name).timeline.flatMap((segment) => (segment.narration ?? []).map((line) => line.text)),
     files: filesOf(item),
   }));
-  const loop = made.find((item) => item.name === 'loop');
-  if (rendered.length > 0 || loop !== undefined) writeFileSync(join(out, 'chapters.json'), `${JSON.stringify({ chapters: rendered, loop: loop === undefined ? null : { seconds: loop.seconds, files: filesOf(loop) } }, null, 2)}\n`);
+  const listed = (item) => (item === undefined ? null : { seconds: item.seconds, files: filesOf(item) });
+  if (made.length > 0) writeFileSync(join(out, 'chapters.json'), `${JSON.stringify({ chapters: rendered, loop: listed(loop), hero: listed(hero) }, null, 2)}\n`);
   return made;
 }
 
@@ -110,9 +121,10 @@ if (process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.
   const sound = args.indexOf('--voice');
   const quality = args.includes('--draft') ? 'draft' : 'delivery';
   const known = new Set(['--out', '--draft', '--only', '--voice']);
-  if (at < 0 || args[at + 1] === undefined || (pick >= 0 && args[pick + 1] === undefined) || (sound >= 0 && args[sound + 1] === undefined) || args.some((arg, index) => arg.startsWith('--') && !known.has(arg) && index !== at + 1 && index !== pick + 1 && index !== sound + 1)) fail('usage: node film/render.mjs --out <folder outside the repository> [--draft] [--only loop|chapters|<page>,...] [--voice <folder that film/voice.mjs wrote>]');
-  const only = pick >= 0 ? args[pick + 1].split(',') : ['loop', 'chapters'];
-  for (const made of render(resolve(args[at + 1]), quality, only, sound >= 0 ? resolve(args[sound + 1]) : undefined)) {
-    process.stdout.write(`film/render.mjs: ${made.name === 'loop' ? 'the loop' : `the chapter ${made.name}`} of ${made.seconds} s in ${made.files.join(', ')}${made.size === undefined ? '' : ` (${(made.size / 1e6).toFixed(2)} MB)`}\n`);
+  if (at < 0 || args[at + 1] === undefined || (pick >= 0 && args[pick + 1] === undefined) || (sound >= 0 && args[sound + 1] === undefined) || args.some((arg, index) => arg.startsWith('--') && !known.has(arg) && index !== at + 1 && index !== pick + 1 && index !== sound + 1)) fail('usage: node film/render.mjs --out <folder outside the repository> [--draft] [--only hero|loop|chapters|<page>,...] [--voice <folder that film/voice.mjs wrote>]');
+  const only = pick >= 0 ? args[pick + 1].split(',') : ['hero', 'loop', 'chapters'];
+  for (const made of await render(resolve(args[at + 1]), quality, only, sound >= 0 ? resolve(args[sound + 1]) : undefined)) {
+    const what = made.name === 'loop' ? 'the loop' : made.name === 'hero' ? 'the hero' : `the chapter ${made.name}`;
+    process.stdout.write(`film/render.mjs: ${what} of ${made.seconds} s in ${made.files.join(', ')}${made.size === undefined ? '' : ` (${made.size} bytes, ${(made.size / 1e6).toFixed(2)} MB${made.pixels === undefined ? '' : `, ${made.pixels} pixels`})`}\n`);
   }
 }

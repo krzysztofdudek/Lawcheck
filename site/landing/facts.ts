@@ -1,30 +1,46 @@
 import { join } from 'node:path';
-import { createHighlighter } from 'shiki';
 import { parse } from 'yaml';
 import topics from '../../docs/topics.json' with { type: 'json' };
-import { codeThemeOfBrand, GITHUB, LINK, manifest, NPM, REPOSITORY } from '../theme/brand.ts';
-import { chapters, loop } from '../theme/film.ts';
+import { GITHUB, LINK, manifest, NPM, REPOSITORY } from '../theme/brand.ts';
+import { chapters } from '../theme/film.ts';
 import { plain } from '../theme/describe.ts';
 import { Fragments, inline, isAhead } from './fragments.ts';
 
 type Link = { text: string; page: string };
+type Cell = { pro: string } | { con: string };
 export interface Copy {
   title: string;
   summary: string;
-  h1: string;
   skip: string;
-  nav: { docs: Link; github: string };
-  install: { copy: string; copyBoth: string; copyPlugin: string; copied: string; quickStart: Link; setup: Link };
-  problem: string;
-  where: string;
-  tryIt: string;
-  comparison: Link;
-  holds: { page: string };
-  tutorial: { heading: string; chapter: string; length: string; play: string; read: string; transcript: string };
-  next: { button: Link; github: string; npm: string };
-  footer: { released: string; ahead: string; docs: Link; changelog: Link; security: string; github: string; npm: string; author: string };
+  heroNote: string;
+  facts: Array<{ label: string; text: string }>;
+  why: { heading: string; head: string[]; rows: Array<{ label: string; cells: Cell[] }>; note: string; link: Link };
+  law: { heading: string; law: { title: string; file: string }; rule: { title: string; file: string }; finding: { title: string; file: string }; hint: string };
+  try: {
+    heading: string;
+    install: string;
+    plugin: string;
+    agents: Record<Agent, string>;
+    notes: Record<Agent, string>;
+    law: string;
+    lawCommands: string[];
+    lawNote: string;
+    check: string;
+    checkCommand: string;
+    checkNote: string;
+    hooks: string;
+  };
+  ci: { heading: string; command: string; note: string; link: Link; check: string; output: string[] };
+  holds: { kicker: string; heading: string; cards: Array<{ title: string; text: string; page: string }> };
+  measured: { before: string; count: string; after: string; list: string; scope: string };
+  tutorial: { kicker: string; heading: string; chapter: string; titles: Record<string, string> };
+  limits: { heading: string; items: string[]; link: Link };
+  footer: { license: string; ahead: string; docs: Link; github: string; npm: string; author: string };
+  copy: string;
+  copied: string;
   notFound: { heading: string; text: string; docs: Link; home: string };
 }
+type Agent = 'claude' | 'codex' | 'copilot' | 'other';
 
 export const pageUrl = (page: string): string => {
   if (!topics.some((topic) => topic.id === page)) throw new Error(`site/landing: index.md links to the page "${page}", which docs/topics.json does not name`);
@@ -44,30 +60,6 @@ export function releaseDate(version: string): string {
   return line.slice(line.lastIndexOf(' ') + 1);
 }
 
-export const promise = (): string => fragments.sentence('README.md', 'Lawcheck', 'You write down which layer');
-export const agents = (): string => fragments.paragraph('README.md', 'Lawcheck', 'The check of imports is deterministic');
-
-export function loopLabel(readme: string): string {
-  const found = /^\[!\[([^\]]+)\]\(/m.exec(readme);
-  if (!found) throw new Error('site/landing: README.md shows no loop, an image link at its top, whose text the landing page gives the video; node film/publish.mjs --release <tag> writes that link, and with --from <folder> it writes it for a preview');
-  return found[1]!;
-}
-
-const LOOP_FILE = '/film/';
-
-export function heroLoop() {
-  const shown = loop();
-  if (!shown) return null;
-  return { webm: `${LOOP_FILE}${shown.files.webm.name}`, mp4: `${LOOP_FILE}${shown.files.mp4.name}`, label: loopLabel(fragments.read('README.md')) };
-}
-
-export function marked(html: string, text: string): string {
-  const lines = html.split('<span class="line">');
-  const at = lines.findIndex((line, index) => index > 0 && line.includes(text));
-  if (at < 0) throw new Error(`site/landing: the still of the hero has no line with ${text}`);
-  lines[at] = `<span class="line mark">${lines[at]!}`;
-  return lines.map((line, index) => (index === 0 || index === at ? line : `<span class="line">${line}`)).join('');
-}
 export const support = (): string => fragments.sentence('docs/support.md', 'Supported environments', `Lawcheck ${manifest.version} runs on`);
 
 export function head() {
@@ -75,115 +67,158 @@ export function head() {
   return { title: copy.title, description: plain(copy.summary), version: manifest.version, date: releaseDate(manifest.version), ahead: isAhead(fragments.read('CHANGELOG.md')), systems: /, on (.+)\.$/.exec(support())![1]! };
 }
 
-export async function facts() {
-  const highlighter = await createHighlighter({ themes: [codeThemeOfBrand], langs: ['yaml', 'javascript'] });
-  const code = (file: string, heading: string, start: string) => {
-    const block = fragments.code(file, heading, start);
-    const lang = block.lang === 'yaml' ? 'yaml' : block.lang === 'js' ? 'javascript' : 'text';
-    return { text: block.code, html: highlighter.codeToHtml(block.code, { lang, theme: 'lawcheck' }) };
+const escape = (text: string): string => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+export function lawLine(line: string): string {
+  const key = /^(\s*)([\w-]+)(:)(.*)$/.exec(line);
+  return key ? `${key[1]}<span class="y">${escape(key[2]!)}</span>:<span class="s">${escape(key[4]!)}</span>` : escape(line);
+}
+
+export const ruleLine = (line: string): string =>
+  escape(line)
+    .replace(/\b(export|function|const|return|if)\b/g, '<span class="k">$1</span>')
+    .replace(/('[^']*')/g, '<span class="s">$1</span>');
+
+export const findingLine = (line: string): string => escape(line).replace(/\bFAIL\b|error\[[\w-]+\]/g, (match) => `<span class="f">${match}</span>`);
+
+function linesWhere(lines: string[], what: string, test: (line: string, at: number) => boolean): number[] {
+  const found = lines.flatMap((line, at) => (test(line, at) ? [at] : []));
+  if (found.length === 0) throw new Error(`site/landing: the block of README.md has no line ${what}, which the finding lights`);
+  return found;
+}
+
+export function panes(law: string[], rule: string[], finding: string[]) {
+  const findings = finding.flatMap((line, at) => {
+    const code = /\berror\[([\w-]+)\]/.exec(line)?.[1];
+    if (code === undefined) return [];
+    return [{ code, lines: finding[at + 1]?.startsWith('  why:') ? [at, at + 1] : [at] }];
+  });
+  const links: Record<string, { law: number[]; rule: number[] }> = {};
+  for (const { code } of findings) {
+    if (code === 'forbidden-use') links[code] = { law: linesWhere(law, 'may_use', (line) => /^\s+may_use:/.test(line)), rule: [] };
+    else {
+      const entry = linesWhere(law, `${code}:`, (line) => line.trim() === `${code}:`);
+      const used = linesWhere(law, `that lists ${code}`, (line) => new RegExp(`^\\s+rules:.*\\b${code}\\b`).test(line));
+      links[code] = { law: [entry[0]!, entry[0]! + 1, ...used], rule: linesWhere(rule, 'that finds', (line) => /\.test\(|findings\.push\(/.test(line)) };
+    }
+  }
+  const owner = new Map(findings.flatMap(({ code, lines }) => lines.map((at) => [at, code] as const)));
+  return {
+    law: law.map(lawLine),
+    rule: rule.map(ruleLine),
+    finding: finding.map((line, at) => ({ html: findingLine(line), link: owner.get(at) ?? '' })),
+    links,
+    first: findings[0]!.code,
   };
+}
+
+function listItem(file: string, heading: string, start: string): string {
+  const found = fragments.list(file, heading, 1).filter((item) => item.startsWith(start));
+  if (found.length !== 1) throw new Error(`site/landing: ${file} has ${found.length} items under "${heading}" that start with "${start}", and the landing page pulls exactly one`);
+  return found[0]!;
+}
+
+const NUMBERS = ['No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten'];
+
+export function facts() {
   const md = (file: string) => (text: string) => inline(text, file, LINK.docs, GITHUB);
   const readme = md('README.md');
-  const index = md('docs/index.md');
-  const others = md('docs/other-tools.md');
+  const own = md('site/landing/index.md');
   const copy = copyOf();
-  const title = (page: string) => topics.find((topic) => topic.id === page)!.title;
   const link = (target: Link) => ({ text: target.text, href: pageUrl(target.page) });
-
-  const law = code('README.md', 'Lawcheck', 'lawcheck: ');
-  const rule = code('README.md', 'Lawcheck', 'export function check');
-  const refusal = code('README.md', 'Lawcheck', '$ lawcheck check');
-  const install = fragments.code('docs/install.md', 'Install globally', '$ npm install').code.replace(/^\$ /, '');
-  const groups = ['`CLAUDE.md` and `AGENTS.md`', 'An architecture tool for one language', 'A review bot at the pull request', 'A hook you wrote in Claude Code'];
-  const rowsOf: Record<string, string[]> = {
-    '`CLAUDE.md` and `AGENTS.md`': ['Your rules say how the agent works, such as the command that runs the tests', 'Your rules are about files: which layer may import which, what a file of one kind must hold'],
-    'An architecture tool for one language': ['One language, and the tool already holds your layers in the test suite or the linter', 'Two or more languages under one set of layers'],
-    'A review bot at the pull request': ['You want comments on the whole change, including on what no rule names', 'A rule must hold in every file of a kind, and the agent must hear it before it opens a pull request', 'Your architecture tool already prints annotations on the lines of the pull request, as `deptrac` does in GitHub Actions ([deptrac\'s page on formatters](https://deptrac.github.io/deptrac/formatters/), read on 2026-11-24)', 'You want annotations on the lines of the pull request, and no tool of yours prints them'],
-    'A hook you wrote in Claude Code': ['Your hook runs the linter and the tests, and the linter already holds your layers', 'You want the law checked inside the turn, on the files of the turn, with at most three returns'],
+  const withLink = (text: string, target: Link) => {
+    const html = own(text);
+    if (!html.includes('{link}')) throw new Error(`site/landing: index.md has no {link} in "${text}"`);
+    return html.replace('{link}', `<a href="${pageUrl(target.page)}">${escape(target.text)}</a>`);
   };
-  const tables = groups.map((group) => fragments.rows('docs/other-tools.md', group, 1, rowsOf[group]!));
+  const lines = (heading: string, start: string) => fragments.code('README.md', heading, start).code.split('\n');
+  const command = (file: string, heading: string, start: string) => fragments.code(file, heading, start).code.split('\n').map((line) => line.replace(/^\$ /, ''));
+  const shown = chapters().toSorted((a, b) => a.number - b.number);
+  const measured = 'What I measured';
 
   return {
-    copy: {
-      ...copy,
-      nav: { ...copy.nav, docs: link(copy.nav.docs) },
-      install: { ...copy.install, quickStart: link(copy.install.quickStart), setup: link(copy.install.setup) },
-      comparison: link(copy.comparison),
-      next: { ...copy.next, button: link(copy.next.button) },
-      footer: { ...copy.footer, docs: link(copy.footer.docs), changelog: link(copy.footer.changelog) },
-      notFound: { ...copy.notFound, docs: link(copy.notFound.docs) },
-    },
-    links: { github: GITHUB, npm: NPM, security: `${GITHUB}/blob/main/SECURITY.md`, author: 'https://chrisdudek.com', changelog: pageUrl('changelog') },
+    copy: { skip: copy.skip, copy: copy.copy, copied: copy.copied, heroNote: copy.heroNote },
+    links: { docs: LINK.docs, github: GITHUB, npm: NPM },
     head: head(),
-    hero: {
-      promise: [promise(), fragments.sentence('README.md', 'Lawcheck', 'A model you pick judges')].map(readme).join(' '),
-      agents: readme(agents()),
-      who: readme(fragments.sentence('README.md', 'Lawcheck', 'It is for you if you build')),
-      install,
-      support: md('docs/support.md')(support()),
-      alpha: readme(fragments.sentence('README.md', 'Try it', 'Lawcheck is an alpha')),
-      still: { file: 'terminal', html: marked(refusal.html, 'error[forbidden-use]') },
-      loop: heroLoop(),
+    lead: readme(fragments.sentence('README.md', 'Lawcheck', 'Lawcheck checks your coding agent')),
+    facts: copy.facts.map((fact) => ({ label: fact.label, text: own(fact.text) })),
+    why: {
+      kicker: readme(fragments.heading('README.md', 'Why not `CLAUDE.md` or your linter')),
+      heading: copy.why.heading,
+      head: copy.why.head.map(own),
+      rows: copy.why.rows.map((row) => ({ label: row.label, cells: row.cells.map((cell) => ('pro' in cell ? { pro: true, html: own(cell.pro) } : { pro: false, html: own(cell.con) })) })),
+      note: withLink(copy.why.note, copy.why.link),
     },
-    pilot: readme(fragments.paragraph('README.md', 'Lawcheck', 'On 2026-11-23 I gave Claude Code')),
-    problem: readme(fragments.paragraph('README.md', 'Lawcheck', 'I build software')),
-    advice: ['A rules file is advice', 'Lawcheck checks your code against', 'Your linter can hold a layer rule', 'Lawcheck adds what the linter leaves to you'].map((start) => readme(fragments.sentence('README.md', 'Lawcheck', start))).join(' '),
     law: {
-      heading: fragments.heading('docs/index.md', 'A law and a finding'),
-      intro: readme(fragments.paragraph('README.md', 'Lawcheck', 'The law is a file')),
-      law: law.html,
-      ruleIntro: readme(fragments.paragraph('README.md', 'Lawcheck', 'A script rule is a JavaScript file')),
-      rule: rule.html,
-      findingIntro: readme(fragments.paragraph('README.md', 'Lawcheck', 'An import of a handler')),
-      finding: refusal.html,
-    },
-    where: {
-      heading: copy.where,
-      items: fragments.list('docs/index.md', 'Lawcheck in your agent and in CI', 1).map(index),
-      other: others(fragments.sentence('docs/other-tools.md', 'A hook you wrote in Claude Code', 'Lawcheck sends the agent back')),
-    },
-    holds: {
-      heading: fragments.heading('README.md', 'One law holds uses, rules, debt and waivers'),
-      items: fragments.list('README.md', 'One law holds uses, rules, debt and waivers', 1).map(readme),
-      link: { text: title(copy.holds.page), href: pageUrl(copy.holds.page) },
-    },
-    tutorial: {
-      chapters: chapters()
-        .toSorted((a, b) => a.number - b.number)
-        .map((chapter) => ({
-          page: chapter.page,
-          number: chapter.number,
-          docs: pageUrl(chapter.page),
-          title: title(chapter.page),
-          seconds: Math.round(chapter.seconds),
-          video: `/film/${chapter.files.mp4.name}`,
-          track: `/film/${chapter.files.vtt.name}`,
-          poster: `/film/${chapter.files.jpg.name}`,
-          transcript: chapter.transcript,
-        })),
-    },
-    tools: {
-      heading: title('other-tools'),
-      head: tables[0]![0]!.map(others),
-      groups: groups.map((group, at) => ({ label: others(group), rows: tables[at]!.slice(1).map((row) => row.map(others)) })),
-    },
-    limits: {
-      heading: fragments.heading('README.md', 'Limits'),
-      items: fragments.list('README.md', 'Limits', 1).map(readme),
+      kicker: readme(fragments.heading('README.md', 'A law, a rule and a finding')),
+      heading: copy.law.heading,
+      titles: { law: copy.law.law, rule: copy.law.rule, finding: copy.law.finding },
+      panes: panes(lines('A law, a rule and a finding', 'lawcheck: '), lines('A law, a rule and a finding', 'export function check'), lines('A law, a rule and a finding', '$ lawcheck check')),
+      hint: copy.law.hint,
     },
     tryIt: {
-      heading: copy.tryIt,
-      install: fragments.code('README.md', 'Try it', 'npm install').code,
-      quickStart: readme(fragments.sentence('README.md', 'Try it', 'You reach a first finding')),
-      setup: readme(fragments.paragraph('README.md', 'Try it', 'In your own repository, your agent')),
-      plugin: readme(fragments.paragraph('README.md', 'Your coding agent', 'In Claude Code, install the plugin')),
-      pluginCommands: fragments.code('README.md', 'Your coding agent', 'claude plugin').code,
-      codex: ['In Codex, the same plugin installs', 'Codex runs the hooks of a plugin only after'].map((start) => readme(fragments.sentence('README.md', 'Your coding agent', start))).join(' '),
-      copilot: readme(fragments.sentence('README.md', 'Your coding agent', 'In GitHub Copilot CLI, the same plugin installs')),
+      kicker: readme(fragments.heading('README.md', 'Try it')),
+      heading: copy.try.heading,
+      install: { label: copy.try.install, commands: command('docs/install.md', 'Install globally', '$ npm install') },
+      plugin: copy.try.plugin,
+      agents: (['claude', 'codex', 'copilot', 'other'] as const).map((id) => ({
+        id,
+        label: copy.try.agents[id],
+        note: own(copy.try.notes[id]),
+        commands:
+          id === 'claude' ? command('docs/plugin.md', 'The Claude Code plugin', 'claude plugin')
+          : id === 'codex' ? command('docs/codex-cli.md', '2. Add the plugin', 'codex plugin')
+          : id === 'copilot' ? command('docs/copilot-cli.md', '2. Add the plugin', 'copilot plugin')
+          : command('docs/other-agents.md', '1. Add one line to the instructions file', 'Run `lawcheck prime`').map((line) => line.replace(/`/g, '')),
+      })),
+      law: { label: copy.try.law, commands: copy.try.lawCommands, note: own(copy.try.lawNote) },
+      check: { label: copy.try.check, commands: [copy.try.checkCommand], note: own(copy.try.checkNote) },
+      alpha: readme(fragments.paragraph('README.md', 'Try it', 'Lawcheck is an alpha')),
+      hooks: own(copy.try.hooks),
+    },
+    ci: {
+      kicker: readme(fragments.heading('README.md', 'In CI')),
+      heading: copy.ci.heading,
+      command: copy.ci.command,
+      note: withLink(copy.ci.note, copy.ci.link),
+      check: copy.ci.check,
+      output: copy.ci.output.map(findingLine),
+    },
+    holds: { kicker: copy.holds.kicker, heading: copy.holds.heading, cards: copy.holds.cards.map((card) => ({ title: card.title, text: own(card.text), href: pageUrl(card.page) })) },
+    measured: {
+      kicker: readme(fragments.heading('README.md', measured)),
+      why: readme(fragments.paragraph('README.md', measured, 'I build software')),
+      before: own(copy.measured.before),
+      count: copy.measured.count,
+      after: own(copy.measured.after),
+      arms: [readme(fragments.sentence('README.md', measured, 'In the 60 sessions')), own(copy.measured.list)].join(' '),
+      limits: [own(copy.measured.scope), ...['I did not run sessions', 'It measured that one breach'].map((start) => readme(fragments.sentence('README.md', measured, start)))].join(' '),
+    },
+    tutorial: {
+      kicker: copy.tutorial.kicker,
+      heading: copy.tutorial.heading.replace('{count}', NUMBERS[shown.length] ?? String(shown.length)),
+      chapters: shown.map((chapter) => {
+        const title = copy.tutorial.titles[chapter.page];
+        if (title === undefined) throw new Error(`site/landing: index.md has no title under tutorial.titles for the chapter ${chapter.page}, which film/published.json lists`);
+        return { page: chapter.page, title, label: copy.tutorial.chapter.replace('{n}', String(chapter.number)), docs: pageUrl(chapter.page), poster: `/film/${chapter.files.jpg.name}` };
+      }),
+    },
+    limits: {
+      kicker: readme(fragments.heading('README.md', 'Limits')),
+      heading: copy.limits.heading,
+      items: [readme(listItem('README.md', 'Limits', 'After three returns')), ...copy.limits.items.map((item) => (item.includes('{link}') ? withLink(item, copy.limits.link) : own(item)))],
+    },
+    footer: {
+      license: copy.footer.license,
+      ahead: copy.footer.ahead.replace('{version}', manifest.version),
+      docs: link(copy.footer.docs),
+      github: copy.footer.github,
+      npm: copy.footer.npm,
+      author: copy.footer.author,
     },
   };
 }
 
-export type Facts = Awaited<ReturnType<typeof facts>>;
+export type Facts = ReturnType<typeof facts>;
 
-export const watched = ['README.md', 'CHANGELOG.md', 'package.json', 'docs/*.md', 'docs/topics.json', 'site/landing/index.md'].map((path) => join(REPOSITORY, path));
+export const watched = ['README.md', 'CHANGELOG.md', 'package.json', 'docs/*.md', 'docs/topics.json', 'site/landing/index.md', 'film/published.json'].map((path) => join(REPOSITORY, path));
