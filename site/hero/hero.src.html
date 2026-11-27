@@ -278,7 +278,7 @@ const SCENES = [
       <div class="what" style="font-size:clamp(26px,3.3vw,48px);font-weight:800;line-height:1.15" ${show(t, 0.1)}>${TAG}</div>
       <div class="agents" ${show(t, 0.7)}><b>Works with</b><span>Claude Code</span><span>Codex</span><span>Copilot CLI</span></div>
     </div>` },
-  { len: 5.0, flow: null, caption: 'A coding agent can break the architecture while every test passes.', draw: (t) => `
+  { len: 5.0, flow: null, caption: 'In my pilot, the agent broke the architecture in 8 of 20 sessions, and every test passed.', draw: (t) => `
     <div class="num bad" style="max-width:820px;margin:0 auto;width:100%" ${show(t, 0.1)}>
       <div class="lbl" style="margin:0 0 6px;font-weight:700;color:var(--fail)">A small pilot: the same prompt, 20 sessions, no rule written down</div>
       <div class="big">8 of 20</div>
@@ -310,7 +310,7 @@ const SCENES = [
       <div class="card law" ${show(t, 0.6)}>
         <div class="h fname">.lawcheck/law.yaml</div>
         <div class="mono" style="font-size:clamp(13px,1.15vw,17px)">${['core:', '  paths: ["src/core/**"]', '  may_use: [core]', '  rules: [no-clock]'].map((l) => `<div>${yamlLine(l)}</div>`).join('')}</div>
-        <div class="txt" style="margin-top:6px">One law reads the imports of 12 languages.</div>
+        <div class="txt" style="margin-top:6px">One law reads imports and other uses in 12 languages.</div>
         ${broke ? `<div class="outcome loud" ${show(t, 4.1, 0.3)}><span class="dot"></span>Checks while the agent writes code, again before it finishes, and in CI.</div>` : ''}
       </div>
     </div>`;
@@ -367,7 +367,7 @@ const SCENES = [
         <li ${show(t, 0.5)}><span class="n">1</span><span>Install the tool</span><code>npm install --global lawcheck@alpha</code></li>
         <li ${show(t, 0.9)}><span class="n">2</span><span>Add the plugin to your agent, then start a new session</span><code>claude plugin marketplace add krzysztofdudek/Lawcheck</code><code>claude plugin install lawcheck@lawcheck-marketplace</code></li>
         <li ${show(t, 1.3)}><span class="n">3</span><span>Create the law, and let your agent describe your folders</span><code>lawcheck init</code><code>/lawcheck:setup</code></li>
-        <li ${show(t, 1.6)}><span class="n">4</span><span>Check</span><code>lawcheck check</code></li>
+        <li ${show(t, 1.6)}><span class="n">4</span><span>Check</span><code>lawcheck check --base main</code></li>
       </ol>
       <div class="lbl" style="font-size:clamp(14px,1.2vw,18px);color:var(--muted)" ${show(t, 1.7)}>Codex and Copilot CLI install the same plugin with their own two commands.</div>
     </div>` },

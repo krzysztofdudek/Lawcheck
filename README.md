@@ -2,14 +2,14 @@
 
 [![Claude Code imports the HTTP handlers into the business logic, and the tests pass. Lawcheck names the line.](https://github.com/krzysztofdudek/Lawcheck/releases/download/v0.1.0-alpha.6/loop.gif)](https://lawcheck.dev)
 
-Lawcheck checks your coding agent's edits against the architecture rules you write down. It checks while the agent writes code, again before the agent finishes, and in CI, with one law that reads the imports of twelve languages. It is free and open source under the [MIT license](LICENSE), and it runs on your machine. It calls an AI model only for a rule written in prose, and only when you run `lawcheck check --review`, through a provider you pick and pay for yourself, or a local Ollama.
+Lawcheck checks your coding agent's edits against the architecture rules you write down. It checks while the agent writes code, again before the agent finishes, and in CI, with one law that reads imports and other uses in twelve languages. It is free and open source under the [MIT license](LICENSE), and it runs on your machine. It calls an AI model only for a rule written in prose, and only when you run `lawcheck check --review`, through a provider you pick and pay for yourself, or a local Ollama.
 
 ## Why not `CLAUDE.md` or your linter
 
 You can write a rule such as "the business logic must not import the HTTP layer" in three places:
 
 - `CLAUDE.md` or `AGENTS.md`. The agent reads the rule, and Claude Code does not check the code against it.
-- Your linter. eslint-plugin-boundaries, import-linter or ArchUnit holds the rule for one language and runs in CI. Inside the agent's turn it runs only through a hook you write.
+- Your linter. eslint-plugin-boundaries, import-linter or ArchUnit holds the rule for one language and runs in CI. Inside the agent's work it runs only through a hook you write; the Lawcheck plugin is such a hook, ready-made.
 - The law of Lawcheck. One file holds the rule for TypeScript, JavaScript, Python, Go, Rust, Java, Kotlin, C#, C, C++, PHP and Ruby. The plugin checks each file the agent edits and hands the agent the file and line. Before the turn ends it checks again, and it sends the agent back, up to three times, while the code breaks the law. A CI job checks the same law with no key and no network.
 
 ## A law, a rule and a finding
@@ -75,7 +75,7 @@ Lawcheck is an alpha. It needs Node 24 or later and git 2.34 or later.
 1. Install the tool: `npm install --global lawcheck@alpha`.
 2. Add the plugin to your agent, then start a new agent session: `claude plugin marketplace add krzysztofdudek/Lawcheck` and `claude plugin install lawcheck@lawcheck-marketplace`.
 3. Create the law at the root of your repository: `lawcheck init` creates an empty `.lawcheck/law.yaml`. Then type `/lawcheck:setup` in Claude Code (`$lawcheck:setup` in Codex), and the agent describes your folders as types. It starts from the rules in your `CLAUDE.md`, `AGENTS.md` and linter config, asks you before it forbids a use the code already makes, and changes nothing outside `.lawcheck/`. To practise first on a new repository with no agent, `lawcheck docs quick-start` walks you to a finding by hand.
-4. Check: `lawcheck check`. It judges the files you changed, and `lawcheck check --full` lists older breaches as debt that does not fail the run. If your code already keeps the law, the check passes; break a rule on purpose to see a finding. None of this needs a model or a key.
+4. Check: `lawcheck check --base main`. It judges the files your branch changed, and `lawcheck check --full` lists older breaches as debt that does not fail the run. If your code already keeps the law, the check passes; to see a finding, import a file the law forbids, such as an HTTP handler into the business logic. None of this needs a model or a key.
 
 Codex and GitHub Copilot CLI install the same plugin with their own two commands: `lawcheck docs codex-cli` and `lawcheck docs copilot-cli`. Any other agent gets one line in its instructions file, `Run lawcheck prime at the start of every session and follow it.`, and then nothing sends it back. The hooks are plain scripts in [plugin/hooks](plugin/hooks), and `lawcheck docs plugin` says what each one does. A script rule is your repository's own code: it can read every file under the root, and it cannot open a network connection.
 

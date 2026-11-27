@@ -1,8 +1,8 @@
 # Lawcheck
 
-Lawcheck checks your coding agent's edits against the architecture rules you write down. It checks while the agent writes code, again before the agent finishes, and in CI, with one [law](concepts.md#law) that reads the imports of 12 languages. It is free and open source under the MIT license, and it runs on your machine. It calls an AI model only for a [rule written in prose](concepts.md#reviewer-rule), and only when you run `lawcheck check --review`, through a provider you pick and pay for, or a local Ollama.
+Lawcheck checks your coding agent's edits against the architecture rules you write down. It checks while the agent writes code, again before the agent finishes, and in CI, with one [law](concepts.md#law) that reads imports and other uses in 12 languages. It is free and open source under the MIT license, and it runs on your machine. It calls an AI model only for a [rule written in prose](concepts.md#reviewer-rule), and only when you run `lawcheck check --review`, through a provider you pick and pay for, or a local Ollama.
 
-A rule in `CLAUDE.md` or `AGENTS.md` is read by the agent, and Claude Code does not check the code against it. Your linter holds a rule for one language and runs in CI; inside the agent's work it runs only through a hook you write. The Lawcheck plugin checks while the agent works, and CI checks the same law ([Lawcheck and the tools you already use](other-tools.md)).
+A rule in `CLAUDE.md` or `AGENTS.md` is read by the agent, and Claude Code does not check the code against it. Your linter holds a rule for one language and runs in CI; inside the agent's work it runs only through a hook you write; the Lawcheck plugin is such a hook, ready-made. The Lawcheck plugin checks while the agent works, and CI checks the same law ([Lawcheck and the tools you already use](other-tools.md)).
 
 ## A law and a finding
 
@@ -97,7 +97,7 @@ A [reviewer rule](reviewer-rules.md) is written in prose, such as "each error a 
 - [Codex](codex-cli.md): the same plugin checks each file the agent writes with `apply_patch`, and sends the agent back the same way before it finishes.
 - [GitHub Copilot CLI](copilot-cli.md): the plugin checks each file the agent writes with `create` or `edit`. Before the agent finishes, it checks every file that changed in its turn, and sends the agent back the same way. The plugin asks the agent to tell you its messages.
 - [Any other agent](other-agents.md): one line in its instructions file tells the agent to run `lawcheck prime`. That command prints the law and the commands that check it. Nothing sends that agent back.
-- [CI](ci.md): `lawcheck check --base origin/main` judges the files of the pull request. It needs no key and no network.
+- [CI](ci.md): `lawcheck check --base origin/main` judges the files of the pull request. It needs no key and no network, unless you set the job up to review rules written in prose.
 
 ## Try it
 
