@@ -32,7 +32,7 @@ export interface Copy {
   };
   ci: { heading: string; command: string; note: string; link: Link; check: string; output: string[] };
   holds: { kicker: string; heading: string; cards: Array<{ title: string; text: string; page: string }> };
-  measured: { before: string; count: string; after: string; list: string; scope: string };
+  measured: { before: string; count: string; after: string };
   tutorial: { kicker: string; heading: string; chapter: string; titles: Record<string, string> };
   limits: { heading: string; items: string[]; link: Link };
   footer: { license: string; ahead: string; docs: Link; github: string; npm: string; author: string };
@@ -134,7 +134,7 @@ export function facts() {
   const lines = (heading: string, start: string) => fragments.code('README.md', heading, start).code.split('\n');
   const command = (file: string, heading: string, start: string) => fragments.code(file, heading, start).code.split('\n').map((line) => line.replace(/^\$ /, ''));
   const shown = chapters().toSorted((a, b) => a.number - b.number);
-  const measured = 'What I measured';
+  const measured = 'How I work';
 
   return {
     copy: { skip: copy.skip, copy: copy.copy, copied: copy.copied, heroNote: copy.heroNote },
@@ -191,8 +191,6 @@ export function facts() {
       before: own(copy.measured.before),
       count: copy.measured.count,
       after: own(copy.measured.after),
-      arms: [readme(fragments.sentence('README.md', measured, 'In the 60 sessions')), own(copy.measured.list)].join(' '),
-      limits: [own(copy.measured.scope), ...['I did not run sessions', 'It measured that one breach'].map((start) => readme(fragments.sentence('README.md', measured, start)))].join(' '),
     },
     tutorial: {
       kicker: copy.tutorial.kicker,

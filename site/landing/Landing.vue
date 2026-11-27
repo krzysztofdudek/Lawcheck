@@ -192,8 +192,6 @@ onBeforeUnmount(() => watcher?.disconnect());
           <p v-html="data.measured.before" />
           <div class="big">{{ data.measured.count }}</div>
           <p class="after" v-html="data.measured.after" />
-          <p v-html="data.measured.arms" />
-          <p class="limits-under" v-html="data.measured.limits" />
         </div>
       </section>
 
