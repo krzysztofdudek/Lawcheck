@@ -278,7 +278,7 @@ const SCENES = [
       <div class="what" style="font-size:clamp(26px,3.3vw,48px);font-weight:800;line-height:1.15" ${show(t, 0.1)}>${TAG}</div>
       <div class="agents" ${show(t, 0.7)}><b>Works with</b><span>Claude Code</span><span>Codex</span><span>Copilot CLI</span></div>
     </div>` },
-  { len: 5.0, flow: null, caption: 'In my pilot, the agent broke the architecture in 8 of 20 sessions, and every test passed.', draw: (t) => `
+  { len: 5.0, flow: null, caption: 'In my pilot, the agent imported the HTTP layer into the business logic in 8 of 20 sessions, and every test passed.', draw: (t) => `
     <div class="num bad" style="max-width:820px;margin:0 auto;width:100%" ${show(t, 0.1)}>
       <div class="lbl" style="margin:0 0 6px;font-weight:700;color:var(--fail)">A small pilot: the same prompt, 20 sessions, no rule written down</div>
       <div class="big">8 of 20</div>
@@ -339,7 +339,7 @@ const SCENES = [
       <div class="h" style="margin-top:14px">After</div>
       <div class="mono" style="font-size:clamp(14px,1.5vw,22px)"><div class="ins-line">${tsLine('import { formatMoney } from "./money.ts";')}</div><div class="ins-line" style="margin-top:6px">${tsLine('  const today = now;')}</div></div>
     </div>
-    ${t > 1.0 ? `<div class="verdict ok" ${show(t, 1.0, 0.2)}><div class="by">${MARK} Lawcheck, right after the edit <span class="chip green">runs on your machine, no AI, free</span></div><div class="head pass">lawcheck: PASS</div></div>` : ''}` },
+    ${t > 1.0 ? `<div class="verdict ok" ${show(t, 1.0, 0.2)}><div class="by">${MARK} Lawcheck, after the edit <span class="chip green">runs on your machine, no AI, free</span></div><div class="head pass">lawcheck: PASS</div></div>` : ''}` },
   { len: 5.4, flow: [], caption: 'Rules written in prose: an AI model you pick reads them, only when you ask, on your own account.', draw: (t) => {
     const bot = (name, p) => `<span class="bot-chip ${p >= 1 ? 'done' : ''}">${p >= 1 ? '<span class="pass" style="width:24px;text-align:center;font-weight:800">✓</span>' : `<span style="display:flex;transform:translateY(${(Math.sin(t * 6 + name.length) * 1.5).toFixed(1)}px)">${ROBOT}</span>`}${p >= 1 ? `${name} follows the rule` : `the model reads ${name}`}${p >= 1 ? '' : `<span class="bar"><i style="width:${(p * 100).toFixed(0)}%"></i></span>`}</span>`;
     return `
