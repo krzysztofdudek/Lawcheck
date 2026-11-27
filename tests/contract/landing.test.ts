@@ -1,13 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, relative, sep } from 'node:path';
 import { parse } from 'yaml';
+import { git, inTemp, lawcheck, newRepository, write } from '../acceptance/helpers.ts';
 import { ROOT } from '../harness/sets.ts';
 import { ALLOWED_NAMES } from './allowed-names.ts';
 import { heroProblems, phoneProblems, problems, tutorialProblems } from '../../site/landing/check.mjs';
 import { panes } from '../../site/landing/facts.ts';
+import { hero } from '../../site/landing/hero/hero.mjs';
 import { problems as docsCardProblems } from '../../site/check-docs-card.mjs';
 import { CARD, cardHead, cardProblems, pngProblems } from '../../site/theme/card.mjs';
 import { CATEGORY, FINDING, og } from '../../site/theme/og.mjs';
@@ -175,6 +177,55 @@ test('test 1509: the panes of the law, the rule and the finding light, for each 
   assert.equal(shown.finding[1]!.html, 'a.ts:1  <span class="f">error[forbidden-use]</span>  core may not use api');
   assert.throws(() => panes(law.filter((line) => !line.includes('may_use')), rule, finding), { message: 'site/landing: the block of README.md has no line may_use, which the finding lights' });
   assert.throws(() => panes(law, rule.slice(0, 1), finding), { message: 'site/landing: the block of README.md has no line that finds, which the finding lights' });
+});
+
+const heroText = (html: string): string => html.replace(/<[^>]+>/g, '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+
+function heroOutput(): string[] {
+  const model = hero('<svg></svg>', { docs: 'https://docs.lawcheck.dev/', github: 'https://github.com/krzysztofdudek/Lawcheck' });
+  const shown = new Set<string>();
+  for (let tenth = 0; tenth < model.length * 10; tenth++) {
+    const scene = model.frame(tenth / 10).scene;
+    for (const match of scene.matchAll(/<span class="real2">([\s\S]*?)<\/span><\/div>|<div class="mono pd">([\s\S]*?)<\/div>|<div class="head pass">([\s\S]*?)<\/div>/g)) shown.add(heroText(match[1] ?? match[2] ?? match[3]!));
+  }
+  return [...shown];
+}
+
+test('test 1510: every finding the hero shows is a line that lawcheck check --base main prints on the sample site/landing/hero/README.md describes, that README lists the same findings, and the line of the passing pull request is one docs/ci.md shows', async () => {
+  const shown = heroOutput();
+  const findings = shown.filter((line) => /^\S+:\d+  error\[[\w-]+\]  /.test(line));
+  const passes = shown.filter((line) => line.startsWith('lawcheck: PASS'));
+  assert.equal(findings.length + passes.length, shown.length, `the hero shows only findings and passing lines as output: ${shown.join(' | ')}`);
+  assert.ok(findings.length >= 3, `the hero shows its three findings: ${shown.join(' | ')}`);
+  const fragments = new Fragments(ROOT);
+  assert.deepEqual(findings.toSorted(), fragments.code('site/landing/hero/README.md', 'Output of Lawcheck', 'src/core/').code.split('\n').toSorted(), 'site/landing/hero/README.md lists each finding the hero shows');
+  assert.deepEqual(passes.toSorted(), ['lawcheck: PASS', 'lawcheck: PASS  3 changed files (against origin/main)']);
+  assert.ok(read('docs/ci.md').split('\n').includes('lawcheck: PASS  3 changed files (against origin/main)'), 'docs/ci.md shows the line of the passing pull request');
+
+  const shop = join(ROOT, 'film', 'fixture', 'shop');
+  const files = Object.fromEntries(
+    readdirSync(shop, { recursive: true, withFileTypes: true })
+      .filter((entry) => entry.isFile())
+      .map((entry) => {
+        const path = join(entry.parentPath, entry.name);
+        return [relative(shop, path).split(sep).join('/'), readFileSync(path, 'utf8')];
+      }),
+  );
+  await inTemp(async (dir) => {
+    const repo = newRepository(dir, {
+      ...files,
+      '.lawcheck/law.yaml': `${fragments.code('README.md', 'A law, a rule and a finding', 'lawcheck: ').code}\n`,
+      '.lawcheck/rules/no-clock.mjs': `${fragments.code('README.md', 'A law, a rule and a finding', 'export function check').code}\n`,
+    });
+    write(repo, 'src/core/loyalty.ts', ['import { formatMoney } from "../api/format.ts";', '', 'export function loyaltyPrice(cents: number): string {', '  return formatMoney(Math.round(cents * 0.95));', '}', '', 'export function isBirthday(day: number): boolean {', '  const rate = 1;', '  const today = new Date();', '  return today.getDate() === day * rate;', '}', ''].join('\n'));
+    write(repo, 'src/api/money.py', 'def format_money(cents):\n    return f"${cents / 100:.2f}"\n');
+    write(repo, 'src/core/pricing.py', 'from src.api.money import format_money\n\n\ndef price(cents):\n    return format_money(cents)\n');
+    git(repo, 'add', '-A');
+    const run = await lawcheck(repo, ['check', '--base', 'main']);
+    assert.equal(run.code, 1, run.stdout);
+    const printed = run.stdout.split('\n');
+    for (const line of findings) assert.ok(printed.includes(line), `lawcheck check --base main prints ${line}, and it printed:\n${run.stdout}`);
+  });
 });
 
 test('test 782: the landing page finds a paragraph, a sentence and a code block by its heading and its opening words, so one that is gone or one that starts like another stops the build, as a missing heading or table row does (control)', () => {
