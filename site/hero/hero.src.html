@@ -311,7 +311,7 @@ const SCENES = [
         <div class="h fname">.lawcheck/law.yaml</div>
         <div class="mono" style="font-size:clamp(13px,1.15vw,17px)">${['core:', '  paths: ["src/core/**"]', '  may_use: [core]', '  rules: [no-clock]'].map((l) => `<div>${yamlLine(l)}</div>`).join('')}</div>
         <div class="txt" style="margin-top:6px">One law reads the imports of 12 languages.</div>
-        ${broke ? `<div class="outcome loud" ${show(t, 4.1, 0.3)}><span class="dot"></span>Checks after every edit of the agent, at the end of its turn, and in CI.</div>` : ''}
+        ${broke ? `<div class="outcome loud" ${show(t, 4.1, 0.3)}><span class="dot"></span>Checks right after each edit, before the agent finishes, and in CI.</div>` : ''}
       </div>
     </div>`;
   } },
