@@ -103,7 +103,6 @@ async function devtools(chromium, profile) {
   return { send, close: () => (socket.close(), browser.kill()) };
 }
 
-// Renders every frame of the hero, seeking it to each time, and encodes them to one GIF with a palette made from all frames.
 export async function renderHeroGif(root, out, { chromium = process.env.HYPERFRAMES_BROWSER_PATH ?? 'chromium', ffmpeg = 'ffmpeg', gif = GIF } = {}) {
   const work = mkdtempSync(join(tmpdir(), 'lawcheck-hero-'));
   const server = await serve(root);
