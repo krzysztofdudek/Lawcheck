@@ -367,7 +367,7 @@ test('test 1140: the redirect file of the landing sends /docs, /docs/ and /docs/
   }
 });
 
-test('test 1426: the first contact opens with one sentence: README.md, docs/index.md and the h1 of the landing page start with it, package.json starts with its words, and README.md, docs/index.md and the landing page each show a law with may_use and a script rule, the rule file, and a finding of each', () => {
+test('test 1426: the first contact opens with one sentence: README.md, docs/index.md, the h1 of the landing page and package.json start with it, and README.md, docs/index.md and the landing page each show a law with may_use and a script rule, the rule file, and a finding of each', () => {
   const opener = "Write your architecture rules once, and stop reading your agent's code to enforce them.";
   const fragments = new Fragments(ROOT);
   assert.equal(fragments.sentence('README.md', 'Lawcheck', 'Write your architecture rules'), opener);
